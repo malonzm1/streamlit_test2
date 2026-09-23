@@ -1,0 +1,12 @@
+{
+    "AEEZA S. NAPII": {
+        "role": "credit_officer",
+        "salt": "1b3d6b84852c098c54e4cd4575825cd9",
+        "password_hash": "315894b6a51d2fcddbd8eb8c5ded74c5f4166f8806a088d9e56cc88f679df68c"
+    },
+    "Beverly P. Francisco": {
+        "role": "area_manager",
+        "salt": "f3d14f9e6bd59c9b0a8c66d2f4b9e554",
+        "password_hash": "af2c514c0a78057abcc3062d753abd09417e36ed4015d07b461bd1fd33001e40"
+    }
+}
