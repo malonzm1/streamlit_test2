@@ -449,64 +449,68 @@ if selection == "loan value":
     # Plot
     # -----------------------------------------------------
 
+    # -----------------------------------------------------
+# Plot - mobile friendly
+# -----------------------------------------------------
+
     fig = go.Figure()
     
-    
     fig.add_trace(
         go.Bar(
-            x=branch_totals["Branch name"],
-            y=branch_totals["total_loan"],
+            y=branch_totals["Branch name"],
+            x=branch_totals["total_loan"],
             name="Total Loan",
-            offsetgroup="loan"
+            orientation="h"
         )
     )
-    
     
     fig.add_trace(
         go.Bar(
-            x=branch_totals["Branch name"],
-            y=branch_totals["total_overdue"],
+            y=branch_totals["Branch name"],
+            x=branch_totals["total_overdue"],
             name="Total Overdue",
-            yaxis="y2",
-            offsetgroup="overdue"
+            orientation="h"
         )
     )
-    
     
     fig.update_layout(
         title="Total Loan Amount and Total Loan Overdue by Branch",
     
         xaxis=dict(
-            title="Branch",
-            tickangle=45
+            title="Amount"
         ),
     
         yaxis=dict(
-            title="Total Loan Amount"
-        ),
-    
-        yaxis2=dict(
-            title="Total Loan Overdue",
-            overlaying="y",
-            side="right"
+            title="Branch",
+            type="category",
+            categoryorder="array",
+            categoryarray=branch_totals["Branch name"].tolist()
         ),
     
         barmode="group",
     
-        height=600,
+        # Give every branch enough vertical space
+        height=max(600, len(branch_totals) * 55),
     
         margin=dict(
-            l=60,
-            r=80,
+            l=120,
+            r=40,
             t=80,
-            b=120
+            b=60
+        ),
+    
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0
         )
     )
     
-    
     st.plotly_chart(
         fig,
-        width="stretch"
+        use_container_width=True
     )
   
 
@@ -517,20 +521,20 @@ if selection == "loan value":
 else:
 
     # -----------------------------------------------------
-    # Equivalent of:
-    #
-    # group_by(Branch) %>%
-    # summarise(
-    #     total_clients = n(),
-    #     overdue_clients = sum(Overdue.total > 0)
-    # )
+    # Group by Branch
     # -----------------------------------------------------
 
     branch_totals = (
         combined_data
-        .groupby("Branch name", dropna=False)
+        .groupby(
+            "Branch name",
+            dropna=False
+        )
         .agg(
-            total_clients=("Branch name", "size"),
+            total_clients=(
+                "Branch name",
+                "size"
+            ),
             overdue_clients=(
                 "Overdue total",
                 lambda x: (x > 0).sum()
@@ -558,7 +562,7 @@ else:
             ascending=False
         )
 
-    elif sortby2 == "Branch name":
+    elif sortby2 == "Branch":
 
         branch_totals = branch_totals.sort_values(
             "Branch name",
@@ -575,18 +579,20 @@ else:
 
     fig.add_trace(
         go.Bar(
-            x=branch_totals["Branch name"],
-            y=branch_totals["total_clients"],
-            name="Total Clients"
+            y=branch_totals["Branch name"],
+            x=branch_totals["total_clients"],
+            name="Total Clients",
+            orientation="h"
         )
     )
 
 
     fig.add_trace(
         go.Bar(
-            x=branch_totals["Branch name"],
-            y=branch_totals["overdue_clients"],
-            name="Clients with Overdue"
+            y=branch_totals["Branch name"],
+            x=branch_totals["overdue_clients"],
+            name="Clients with Overdue",
+            orientation="h"
         )
     )
 
@@ -595,23 +601,40 @@ else:
         title="Total Clients and Clients with Overdue by Branch",
 
         xaxis=dict(
-            title="Branch",
-            tickangle=45
+            title="Number of Clients",
+            rangemode="tozero"
         ),
 
         yaxis=dict(
-            title="Number of Clients"
+            title="Branch",
+            type="category",
+            categoryorder="array",
+            categoryarray=branch_totals[
+                "Branch name"
+            ].tolist(),
+            automargin=True
         ),
 
         barmode="group",
 
-        height=600,
+        height=max(
+            600,
+            len(branch_totals) * 55
+        ),
 
         margin=dict(
-            l=60,
+            l=150,
             r=40,
-            t=80,
-            b=120
+            t=100,
+            b=60
+        ),
+
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0
         )
     )
 
