@@ -9,10 +9,9 @@ import pandas as pd
 import streamlit as st
 import os
 
-if st.session_state[
-        "logged_in_user"
-    ] == None: st.switch_page("pages/home.py")
-
+if st.session_state.get("logged_in_user") is None:
+    st.switch_page("pages/home.py")
+    
 # =========================================================
 # CHECK DATA
 # =========================================================
@@ -38,17 +37,8 @@ combined_data = st.session_state["working_data"]
 # CURRENT USER
 # ============================================================
 
-logged_in_user = (
-    st.session_state[
-        "logged_in_user"
-    ]
-)
-
-user_role = (
-    st.session_state[
-        "user_role"
-    ]
-)
+logged_in_user = st.session_state.get("logged_in_user")
+user_role = st.session_state.get("user_role")
 
 
 # ============================================================
@@ -116,11 +106,6 @@ if st.sidebar.button(
 
     st.switch_page("pages/home.py")
 
-    st.session_state[
-        "user_role"
-    ] = None
-
-    st.rerun()
 
 
 # =========================================================

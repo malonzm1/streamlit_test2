@@ -26,9 +26,8 @@ st.set_page_config(
     layout="wide"
 )
 
-if st.session_state[
-        "logged_in_user"
-    ] == None: st.switch_page("pages/home.py")
+if st.session_state.get("logged_in_user") is None:
+    st.switch_page("pages/home.py")
     
 # ============================================================
 # DATA
@@ -227,17 +226,8 @@ credit_officers = sorted(
 # CURRENT USER
 # ============================================================
 
-logged_in_user = (
-    st.session_state[
-        "logged_in_user"
-    ]
-)
-
-user_role = (
-    st.session_state[
-        "user_role"
-    ]
-)
+logged_in_user = st.session_state.get("logged_in_user")
+user_role = st.session_state.get("user_role")
 
 
 # ============================================================
@@ -305,11 +295,6 @@ if st.sidebar.button(
 
     st.switch_page("pages/home.py")
 
-    st.session_state[
-        "user_role"
-    ] = None
-
-    st.rerun()
 
 
 

@@ -21,7 +21,6 @@ st.set_page_config(
 if st.session_state.get("logged_in_user") is None:
     st.switch_page("pages/home.py")
 
-
 # ============================================================
 # GET SESSION DATA
 # ============================================================

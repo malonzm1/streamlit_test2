@@ -219,18 +219,8 @@ if missing_columns:
 # CURRENT USER
 # ============================================================
 
-logged_in_user = (
-    st.session_state[
-        "logged_in_user"
-    ]
-)
-
-
-user_role = (
-    st.session_state[
-        "user_role"
-    ]
-)
+logged_in_user = st.session_state.get("logged_in_user")
+user_role = st.session_state.get("user_role")
 
 
 # ============================================================
