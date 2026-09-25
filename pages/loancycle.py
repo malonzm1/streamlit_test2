@@ -54,12 +54,15 @@ data = st.session_state["data"]
 # ROLE-FILTERED DATA
 # =========================================================
 
-combined_data = st.session_state["working_data"]
+combined_data = st.session_state.get(
+    "working_data",
+    data.copy()
+)
 
 
 # =========================================================
 # CURRENT USER
-# ============================================================
+# =========================================================
 
 logged_in_user = st.session_state.get(
     "logged_in_user"
@@ -67,6 +70,22 @@ logged_in_user = st.session_state.get(
 
 user_role = st.session_state.get(
     "user_role"
+)
+
+
+# =========================================================
+# ROLE MAPPINGS
+# =========================================================
+
+AREA_MANAGERS2 = st.session_state.get(
+    "AREA_MANAGERS2",
+    {}
+)
+
+
+BRANCH_MANAGERS2 = st.session_state.get(
+    "BRANCH_MANAGERS2",
+    {}
 )
 
 
@@ -80,6 +99,10 @@ st.sidebar.success(
 )
 
 
+manager_area = None
+manager_branch = None
+
+
 if user_role == "credit_officer":
 
     st.sidebar.info(
@@ -88,10 +111,6 @@ if user_role == "credit_officer":
 
 
 elif user_role == "area_manager":
-
-    AREA_MANAGERS2 = st.session_state[
-        "AREA_MANAGERS2"
-    ]
 
     manager_area = AREA_MANAGERS2.get(
         logged_in_user
@@ -117,11 +136,6 @@ elif user_role == "area_manager":
 
 
 elif user_role == "branch_manager":
-
-    BRANCH_MANAGERS2 = st.session_state.get(
-        "BRANCH_MANAGERS2",
-        {}
-    )
 
     manager_branch = BRANCH_MANAGERS2.get(
         logged_in_user
@@ -168,7 +182,9 @@ if st.sidebar.button(
 
     st.session_state["user_role"] = None
 
-    st.switch_page("pages/home.py")
+    st.switch_page(
+        "pages/home.py"
+    )
 
 
 # =========================================================
@@ -191,10 +207,13 @@ def find_column(
 
 # =========================================================
 # FIND REQUIRED COLUMNS
+#
+# Use the ORIGINAL COMPLETE DATA so that Admin can
+# access Area, Branch, and Credit Officer filters.
 # =========================================================
 
 cycle_col = find_column(
-    combined_data,
+    data,
     [
         "Loan Cycle"
     ]
@@ -202,7 +221,7 @@ cycle_col = find_column(
 
 
 loan_col = find_column(
-    combined_data,
+    data,
     [
         "Loan amount",
         "Loan.amount"
@@ -211,7 +230,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    combined_data,
+    data,
     [
         "Overdue total",
         "Overdue.total"
@@ -220,7 +239,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    combined_data,
+    data,
     [
         "Client name",
         "Client.name"
@@ -229,10 +248,28 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    combined_data,
+    data,
     [
         "Credit officer",
         "Credit.officer"
+    ]
+)
+
+
+branch_col = find_column(
+    data,
+    [
+        "Branch name",
+        "Branch.name"
+    ]
+)
+
+
+area_col = find_column(
+    data,
+    [
+        "Area",
+        "Area.name"
     ]
 )
 
@@ -247,7 +284,11 @@ required_columns = {
 
     "Client": client_col,
 
-    "Credit officer": fdo_col
+    "Credit officer": fdo_col,
+
+    "Branch name": branch_col,
+
+    "Area": area_col
 
 }
 
@@ -275,14 +316,650 @@ if missing:
 
 
 # =========================================================
-# WORKING COPY
+# CREATE BASE DATA
+#
+# This is cleaned BEFORE role filtering.
 # =========================================================
 
-working_data = combined_data.copy()
+base_data = data.copy()
 
 
 # =========================================================
 # CONVERT NUMERIC COLUMNS
+# =========================================================
+
+base_data[loan_col] = pd.to_numeric(
+    base_data[loan_col],
+    errors="coerce"
+).fillna(0)
+
+
+base_data[overdue_col] = pd.to_numeric(
+    base_data[overdue_col],
+    errors="coerce"
+).fillna(0)
+
+
+# =========================================================
+# CLEAN LOAN CYCLE
+# =========================================================
+
+base_data[cycle_col] = (
+    base_data[cycle_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# CLEAN CREDIT OFFICER
+# =========================================================
+
+base_data[fdo_col] = (
+    base_data[fdo_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# CLEAN BRANCH
+# =========================================================
+
+base_data[branch_col] = (
+    base_data[branch_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# CLEAN AREA
+# =========================================================
+
+base_data[area_col] = (
+    base_data[area_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# CLEAN CLIENT
+# =========================================================
+
+base_data["_client_clean"] = (
+    base_data[client_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# REMOVE EMPTY / NAN LOAN CYCLES
+# =========================================================
+
+base_data = base_data[
+    (base_data[cycle_col] != "")
+    &
+    (
+        base_data[
+            cycle_col
+        ].str.lower()
+        != "nan"
+    )
+].copy()
+
+
+# =========================================================
+# VARIABLES USED BY FILTER MENUS
+# =========================================================
+
+selected_area_manager = None
+
+selected_branch_manager = None
+
+selected_credit_officer = None
+
+
+# =========================================================
+# ADMINISTRATOR FILTER
+#
+# Admin:
+#   All data
+#   Area managers
+#   Branch managers
+#   Credit officers
+# =========================================================
+
+if user_role == "superuser":
+
+    admin_view = st.sidebar.radio(
+
+        "View data as:",
+
+        [
+            "All data",
+            "Area managers",
+            "Branch managers",
+            "Credit officers"
+        ],
+
+        key="loan_cycle_admin_view"
+
+    )
+
+
+    # =====================================================
+    # ADMIN -> ALL DATA
+    # =====================================================
+
+    if admin_view == "All data":
+
+        working_data = base_data.copy()
+
+
+    # =====================================================
+    # ADMIN -> AREA MANAGERS
+    # =====================================================
+
+    elif admin_view == "Area managers":
+
+        area_manager_options = sorted(
+
+            [
+
+                str(manager)
+
+                for manager
+                in AREA_MANAGERS2.keys()
+
+                if str(manager).strip() != ""
+
+            ]
+
+        )
+
+
+        if not area_manager_options:
+
+            st.sidebar.warning(
+                "No Area Managers are available."
+            )
+
+            working_data = (
+                base_data.iloc[0:0].copy()
+            )
+
+        else:
+
+            selected_area_manager = (
+                st.sidebar.selectbox(
+
+                    "Select Area Manager:",
+
+                    area_manager_options,
+
+                    key=(
+                        "loan_cycle_admin_"
+                        "area_manager"
+                    )
+
+                )
+            )
+
+
+            selected_area = (
+                AREA_MANAGERS2.get(
+                    selected_area_manager
+                )
+            )
+
+
+            working_data = base_data[
+                base_data[area_col]
+                .astype(str)
+                .str.strip()
+                ==
+                str(selected_area)
+                .strip()
+            ].copy()
+
+
+    # =====================================================
+    # ADMIN -> BRANCH MANAGERS
+    # =====================================================
+
+    elif admin_view == "Branch managers":
+
+        branch_manager_options = sorted(
+
+            [
+
+                str(manager)
+
+                for manager
+                in BRANCH_MANAGERS2.keys()
+
+                if str(manager).strip() != ""
+
+            ]
+
+        )
+
+
+        if not branch_manager_options:
+
+            st.sidebar.warning(
+                "No Branch Managers are available."
+            )
+
+            working_data = (
+                base_data.iloc[0:0].copy()
+            )
+
+        else:
+
+            selected_branch_manager = (
+                st.sidebar.selectbox(
+
+                    "Select Branch Manager:",
+
+                    branch_manager_options,
+
+                    key=(
+                        "loan_cycle_admin_"
+                        "branch_manager"
+                    )
+
+                )
+            )
+
+
+            selected_branch = (
+                BRANCH_MANAGERS2.get(
+                    selected_branch_manager
+                )
+            )
+
+
+            working_data = base_data[
+                base_data[branch_col]
+                .astype(str)
+                .str.strip()
+                ==
+                str(selected_branch)
+                .strip()
+            ].copy()
+
+
+    # =====================================================
+    # ADMIN -> CREDIT OFFICERS
+    # =====================================================
+
+    else:
+
+        credit_officer_options = sorted(
+
+            [
+
+                officer
+
+                for officer
+                in base_data[fdo_col].unique()
+
+                if officer
+
+                and officer.lower() != "nan"
+
+                and officer.lower() != "unknown"
+
+            ]
+
+        )
+
+
+        if not credit_officer_options:
+
+            st.sidebar.warning(
+                "No Credit Officers are available."
+            )
+
+            working_data = (
+                base_data.iloc[0:0].copy()
+            )
+
+        else:
+
+            selected_credit_officer = (
+                st.sidebar.selectbox(
+
+                    "Select Credit Officer:",
+
+                    credit_officer_options,
+
+                    key=(
+                        "loan_cycle_admin_"
+                        "credit_officer"
+                    )
+
+                )
+            )
+
+
+            working_data = base_data[
+                base_data[fdo_col]
+                ==
+                selected_credit_officer
+            ].copy()
+
+
+# =========================================================
+# AREA MANAGER FILTER
+#
+# Area Manager:
+#   All data
+#   Branch managers
+#   Credit officers
+# =========================================================
+
+elif user_role == "area_manager":
+
+    area_manager_view = st.sidebar.radio(
+
+        "View data as:",
+
+        [
+            "All data",
+            "Branch managers",
+            "Credit officers"
+        ],
+
+        key="loan_cycle_area_manager_view"
+
+    )
+
+
+    # =====================================================
+    # AREA MANAGER'S DATA
+    #
+    # Start from combined_data because Home has already
+    # restricted this user to their own Area.
+    # =====================================================
+
+    area_data = combined_data.copy()
+
+
+    # -----------------------------------------------------
+    # Re-clean numeric columns
+    # -----------------------------------------------------
+
+    area_data[loan_col] = pd.to_numeric(
+        area_data[loan_col],
+        errors="coerce"
+    ).fillna(0)
+
+
+    area_data[overdue_col] = pd.to_numeric(
+        area_data[overdue_col],
+        errors="coerce"
+    ).fillna(0)
+
+
+    # -----------------------------------------------------
+    # Re-clean text columns
+    # -----------------------------------------------------
+
+    area_data[cycle_col] = (
+        area_data[cycle_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    area_data[fdo_col] = (
+        area_data[fdo_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    area_data[branch_col] = (
+        area_data[branch_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    area_data[area_col] = (
+        area_data[area_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    area_data["_client_clean"] = (
+        area_data[client_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+
+    # =====================================================
+    # AREA MANAGER -> ALL DATA
+    # =====================================================
+
+    if area_manager_view == "All data":
+
+        working_data = area_data.copy()
+
+
+    # =====================================================
+    # AREA MANAGER -> BRANCH MANAGERS
+    # =====================================================
+
+    elif area_manager_view == "Branch managers":
+
+        # Branches actually available to this Area Manager
+
+        area_branches = set(
+
+            area_data[
+                branch_col
+            ]
+
+            .dropna()
+
+            .astype(str)
+
+            .str.strip()
+
+            .loc[
+                lambda x: x != ""
+            ]
+
+            .unique()
+
+        )
+
+
+        # Only show Branch Managers whose branch
+        # belongs to this Area Manager
+
+        branch_manager_options = sorted(
+
+            [
+
+                str(manager)
+
+                for manager, branch
+                in BRANCH_MANAGERS2.items()
+
+                if str(branch).strip()
+                in area_branches
+
+            ]
+
+        )
+
+
+        if not branch_manager_options:
+
+            st.sidebar.warning(
+                "No Branch Managers were found "
+                "in your Area."
+            )
+
+            working_data = (
+                area_data.iloc[0:0].copy()
+            )
+
+        else:
+
+            selected_branch_manager = (
+                st.sidebar.selectbox(
+
+                    "Select Branch Manager:",
+
+                    branch_manager_options,
+
+                    key=(
+                        "loan_cycle_area_"
+                        "branch_manager"
+                    )
+
+                )
+            )
+
+
+            selected_branch = (
+                BRANCH_MANAGERS2.get(
+                    selected_branch_manager
+                )
+            )
+
+
+            working_data = area_data[
+                area_data[branch_col]
+                .astype(str)
+                .str.strip()
+                ==
+                str(selected_branch)
+                .strip()
+            ].copy()
+
+
+    # =====================================================
+    # AREA MANAGER -> CREDIT OFFICERS
+    # =====================================================
+
+    else:
+
+        credit_officer_options = sorted(
+
+            [
+
+                officer
+
+                for officer
+                in area_data[fdo_col].unique()
+
+                if officer
+
+                and officer.lower() != "nan"
+
+                and officer.lower() != "unknown"
+
+            ]
+
+        )
+
+
+        if not credit_officer_options:
+
+            st.sidebar.warning(
+                "No Credit Officers were found "
+                "in your Area."
+            )
+
+            working_data = (
+                area_data.iloc[0:0].copy()
+            )
+
+        else:
+
+            selected_credit_officer = (
+                st.sidebar.selectbox(
+
+                    "Select Credit Officer:",
+
+                    credit_officer_options,
+
+                    key=(
+                        "loan_cycle_area_"
+                        "credit_officer"
+                    )
+
+                )
+            )
+
+
+            working_data = area_data[
+                area_data[fdo_col]
+                ==
+                selected_credit_officer
+            ].copy()
+
+
+# =========================================================
+# BRANCH MANAGER
+#
+# Home has already restricted this user to their branch.
+# =========================================================
+
+elif user_role == "branch_manager":
+
+    working_data = combined_data.copy()
+
+
+# =========================================================
+# CREDIT OFFICER
+#
+# Home has already restricted this user to their data.
+# =========================================================
+
+elif user_role == "credit_officer":
+
+    working_data = combined_data.copy()
+
+
+# =========================================================
+# FALLBACK
+# =========================================================
+
+else:
+
+    working_data = combined_data.copy()
+
+
+# =========================================================
+# FINAL CLEANING
+#
+# IMPORTANT:
+# Recreate _client_clean AFTER role filtering.
+#
+# This prevents:
+# KeyError: '_client_clean'
 # =========================================================
 
 working_data[loan_col] = pd.to_numeric(
@@ -297,128 +974,199 @@ working_data[overdue_col] = pd.to_numeric(
 ).fillna(0)
 
 
-# =========================================================
-# CLEAN LOAN CYCLE
-# =========================================================
-
 working_data[cycle_col] = (
     working_data[cycle_col]
+    .fillna("")
     .astype(str)
     .str.strip()
 )
 
-
-# =========================================================
-# CLEAN CREDIT OFFICER
-# =========================================================
 
 working_data[fdo_col] = (
     working_data[fdo_col]
+    .fillna("")
     .astype(str)
     .str.strip()
 )
 
 
-# =========================================================
-# CLEAN CLIENT
-# =========================================================
+working_data[branch_col] = (
+    working_data[branch_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
+
+working_data[area_col] = (
+    working_data[area_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
 
 working_data["_client_clean"] = (
     working_data[client_col]
+    .fillna("")
     .astype(str)
     .str.strip()
 )
 
 
 # =========================================================
-# REMOVE EMPTY / NAN LOAN CYCLES
+# REMOVE EMPTY / NAN CLIENTS
 # =========================================================
 
 working_data = working_data[
-    (working_data[cycle_col] != "")
+    (
+        working_data[
+            "_client_clean"
+        ]
+        != ""
+    )
     &
     (
         working_data[
-            cycle_col
-        ].str.lower()
+            "_client_clean"
+        ]
+        .str.lower()
         != "nan"
     )
 ].copy()
 
 
 # =========================================================
-# CREDIT OFFICER DROPDOWN — SIDEBAR
-# =========================================================
-
-credit_officers = sorted(
-    [
-        officer
-
-        for officer
-        in working_data[
-            fdo_col
-        ].unique()
-
-        if officer
-        and officer.lower() != "nan"
-        and officer.lower() != "unknown"
-    ]
-)
-
-
-if user_role != "credit_officer":
-
-    selected_credit_officer = (
-        st.sidebar.selectbox(
-
-            "Credit Officer:",
-
-            [
-                "All Credit Officers"
-            ]
-            +
-            credit_officers,
-
-            index=0,
-
-            key="loan_cycle_credit_officer"
-        )
-    )
-
-else:
-
-    selected_credit_officer = (
-        st.sidebar.selectbox(
-
-            "Credit Officer:",
-
-            credit_officers,
-
-            index=0,
-
-            key="loan_cycle_credit_officer"
-        )
-    )
-
-
-# =========================================================
-# FILTER BY CREDIT OFFICER
-# =========================================================
-
-if (
-    selected_credit_officer
-    != "All Credit Officers"
-):
-
-    working_data = working_data[
-        working_data[fdo_col]
-        ==
-        selected_credit_officer
-    ].copy()
-
-
-# =========================================================
 # CHECK FILTERED DATA
+# =========================================================
+
+if working_data.empty:
+
+    st.warning(
+        "No data was found for the selected filters."
+    )
+
+    st.stop()
+
+
+# =========================================================
+# CREDIT OFFICER DROPDOWN
+#
+# Only show this dropdown when the selected view has
+# not already selected a specific Credit Officer.
+#
+# Therefore:
+#
+# Admin -> All data:
+#     Credit Officer dropdown
+#
+# Admin -> Area Manager:
+#     Credit Officer dropdown
+#
+# Admin -> Branch Manager:
+#     Credit Officer dropdown
+#
+# Admin -> Credit Officer:
+#     already selected, so no second dropdown
+#
+# Area Manager -> All data:
+#     Credit Officer dropdown
+#
+# Area Manager -> Branch Manager:
+#     Credit Officer dropdown
+#
+# Area Manager -> Credit Officer:
+#     already selected
+#
+# Branch Manager / Credit Officer:
+#     existing behavior
+# =========================================================
+
+if selected_credit_officer is None:
+
+    credit_officers = sorted(
+
+        [
+
+            officer
+
+            for officer
+            in working_data[fdo_col].unique()
+
+            if officer
+
+            and officer.lower() != "nan"
+
+            and officer.lower() != "unknown"
+
+        ]
+
+    )
+
+
+    if user_role == "credit_officer":
+
+        if credit_officers:
+
+            selected_credit_officer = (
+                credit_officers[0]
+            )
+
+            working_data = working_data[
+                working_data[fdo_col]
+                ==
+                selected_credit_officer
+            ].copy()
+
+    else:
+
+        if credit_officers:
+
+            selected_credit_officer = (
+                st.sidebar.selectbox(
+
+                    "Credit Officer:",
+
+                    [
+                        "All Credit Officers"
+                    ]
+                    +
+                    credit_officers,
+
+                    index=0,
+
+                    key=(
+                        "loan_cycle_credit_officer"
+                    )
+
+                )
+            )
+
+
+            # ---------------------------------------------
+            # Filter only when a specific officer is chosen
+            # ---------------------------------------------
+
+            if (
+                selected_credit_officer
+                != "All Credit Officers"
+            ):
+
+                working_data = working_data[
+                    working_data[fdo_col]
+                    ==
+                    selected_credit_officer
+                ].copy()
+
+        else:
+
+            selected_credit_officer = (
+                "All Credit Officers"
+            )
+
+
+# =========================================================
+# FINAL CHECK AFTER CREDIT OFFICER FILTER
 # =========================================================
 
 if working_data.empty:
@@ -432,8 +1180,16 @@ if working_data.empty:
 
 
 # =========================================================
-# CLIENT CLEANING AFTER FILTER
+# RECREATE CLIENT COLUMN AFTER FINAL FILTER
 # =========================================================
+
+working_data["_client_clean"] = (
+    working_data[client_col]
+    .fillna("")
+    .astype(str)
+    .str.strip()
+)
+
 
 working_data = working_data[
     (
@@ -591,11 +1347,13 @@ client_cycle_totals = (
     total_clients_by_cycle
 
     .merge(
+
         overdue_clients_by_cycle,
 
         on=cycle_col,
 
         how="left"
+
     )
 
 )
@@ -1243,10 +2001,92 @@ with col2:
 # SUMMARY
 # =========================================================
 
+if user_role == "superuser":
+
+    if selected_area_manager is not None:
+
+        view_label = (
+            "Area Manager: "
+            + str(selected_area_manager)
+        )
+
+    elif selected_branch_manager is not None:
+
+        view_label = (
+            "Branch Manager: "
+            + str(selected_branch_manager)
+        )
+
+    elif (
+        selected_credit_officer is not None
+        and
+        selected_credit_officer
+        != "All Credit Officers"
+    ):
+
+        view_label = (
+            "Credit Officer: "
+            + str(selected_credit_officer)
+        )
+
+    else:
+
+        view_label = "All data"
+
+
+elif user_role == "area_manager":
+
+    if selected_branch_manager is not None:
+
+        view_label = (
+            "Branch Manager: "
+            + str(selected_branch_manager)
+        )
+
+    elif (
+        selected_credit_officer is not None
+        and
+        selected_credit_officer
+        != "All Credit Officers"
+    ):
+
+        view_label = (
+            "Credit Officer: "
+            + str(selected_credit_officer)
+        )
+
+    else:
+
+        view_label = (
+            "Area: "
+            + str(manager_area)
+        )
+
+
+elif user_role == "branch_manager":
+
+    view_label = (
+        "Branch: "
+        + str(manager_branch)
+    )
+
+
+elif user_role == "credit_officer":
+
+    view_label = (
+        "Credit Officer: "
+        + str(logged_in_user)
+    )
+
+
+else:
+
+    view_label = "All data"
+
+
 st.caption(
 
-    f"Credit Officer: "
-    f"{selected_credit_officer}"
+    f"{view_label}"
 
     f" | Total Loan: "
     f"₱{overall_total_loan:,.2f}"
@@ -1261,3 +2101,4 @@ st.caption(
     f"{overall_overdue_clients:,}"
 
 )
+
