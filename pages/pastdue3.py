@@ -323,13 +323,43 @@ elif user_role == "credit_officer":
 # SIDEBAR — GROUP BY
 # ============================================================
 
-group_label_choice = st.sidebar.radio(
-    "Group by:",
-    options=[
+if user_role == "branch_manager":
+
+    group_by_options = [
+        "Credit officer",
+        "Branch name"
+    ]
+    
+elif user_role == "credit_officer":
+
+    group_by_options = [
+        "Credit officer"
+    ]
+else:
+
+    group_by_options = [
         "Credit officer",
         "Branch name",
         "Area"
-    ],
+    ]
+
+
+# If the previously selected option is "Area"
+# and the user has changed to Branch Manager,
+# automatically switch to Credit officer.
+if (
+    st.session_state.get("group_label_choice")
+    not in group_by_options
+):
+
+    st.session_state["group_label_choice"] = (
+        group_by_options[0]
+    )
+
+
+group_label_choice = st.sidebar.radio(
+    "Group by:",
+    options=group_by_options,
     key="group_label_choice"
 )
 

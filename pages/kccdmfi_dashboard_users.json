@@ -8,5 +8,10 @@
         "role": "area_manager",
         "salt": "f3d14f9e6bd59c9b0a8c66d2f4b9e554",
         "password_hash": "af2c514c0a78057abcc3062d753abd09417e36ed4015d07b461bd1fd33001e40"
+    },
+    "ALCIDA HASIM": {
+        "role": "branch_manager",
+        "salt": "883b00ef6a89744f9622c59affb75b65",
+        "password_hash": "bad12877d69cf81d3ce62c81e5fcc1f69292619f62986f617005938ad66f1f5f"
     }
 }

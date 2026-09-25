@@ -2,7 +2,7 @@
 #py_install(c("streamlit"))
 #py_install(c("plotly"))
 #library(reticulate)
-
+#py_install('streamlit_plotly_events')
 #py_require(c(
 #    "google-api-python-client",
 #    "google-auth"

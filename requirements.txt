@@ -4,3 +4,5 @@ plotly
 numpy
 google-auth
 google-api-python-client
+streamlit-plotly-events2
+streamlit-plotly-events

@@ -9,9 +9,26 @@ import pandas as pd
 import streamlit as st
 import os
 
+
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
+
+st.set_page_config(
+    page_title="KMFI Loan Cycle",
+    layout="wide"
+)
+
+
+# =========================================================
+# CHECK LOGIN
+# =========================================================
+
 if st.session_state.get("logged_in_user") is None:
+
     st.switch_page("pages/home.py")
-    
+
+
 # =========================================================
 # CHECK DATA
 # =========================================================
@@ -26,24 +43,36 @@ if "data" not in st.session_state:
     st.stop()
 
 
-# Original complete data
+# =========================================================
+# ORIGINAL COMPLETE DATA
+# =========================================================
+
 data = st.session_state["data"]
 
 
-# Role-filtered data
+# =========================================================
+# ROLE-FILTERED DATA
+# =========================================================
+
 combined_data = st.session_state["working_data"]
 
-# ============================================================
+
+# =========================================================
 # CURRENT USER
 # ============================================================
 
-logged_in_user = st.session_state.get("logged_in_user")
-user_role = st.session_state.get("user_role")
+logged_in_user = st.session_state.get(
+    "logged_in_user"
+)
+
+user_role = st.session_state.get(
+    "user_role"
+)
 
 
-# ============================================================
+# =========================================================
 # SIDEBAR USER INFORMATION
-# ============================================================
+# =========================================================
 
 st.sidebar.success(
     "Logged in as: "
@@ -60,7 +89,10 @@ if user_role == "credit_officer":
 
 elif user_role == "area_manager":
 
-    AREA_MANAGERS2 = st.session_state["AREA_MANAGERS2"]
+    AREA_MANAGERS2 = st.session_state[
+        "AREA_MANAGERS2"
+    ]
+
     manager_area = AREA_MANAGERS2.get(
         logged_in_user
     )
@@ -84,6 +116,36 @@ elif user_role == "area_manager":
     )
 
 
+elif user_role == "branch_manager":
+
+    BRANCH_MANAGERS2 = st.session_state.get(
+        "BRANCH_MANAGERS2",
+        {}
+    )
+
+    manager_branch = BRANCH_MANAGERS2.get(
+        logged_in_user
+    )
+
+    if manager_branch is None:
+
+        st.error(
+            "This Branch Manager is not assigned "
+            "to a Branch."
+        )
+
+        st.stop()
+
+    st.sidebar.info(
+        "Role: Branch Manager"
+    )
+
+    st.sidebar.info(
+        "Branch: "
+        + str(manager_branch)
+    )
+
+
 elif user_role == "superuser":
 
     st.sidebar.info(
@@ -91,9 +153,9 @@ elif user_role == "superuser":
     )
 
 
-# ============================================================
+# =========================================================
 # LOGOUT
-# ============================================================
+# =========================================================
 
 if st.sidebar.button(
     "Logout",
@@ -101,22 +163,27 @@ if st.sidebar.button(
 ):
 
     st.session_state["authenticated"] = False
+
     st.session_state["logged_in_user"] = None
+
     st.session_state["user_role"] = None
 
     st.switch_page("pages/home.py")
-
 
 
 # =========================================================
 # FIND COLUMN
 # =========================================================
 
-def find_column(df, candidates):
+def find_column(
+    df,
+    candidates
+):
 
     for col in candidates:
 
         if col in df.columns:
+
             return col
 
     return None
@@ -128,23 +195,38 @@ def find_column(df, candidates):
 
 cycle_col = find_column(
     combined_data,
-    ["Loan Cycle"]
+    [
+        "Loan Cycle"
+    ]
 )
+
 
 loan_col = find_column(
     combined_data,
-    ["Loan amount"]
+    [
+        "Loan amount",
+        "Loan.amount"
+    ]
 )
+
 
 overdue_col = find_column(
     combined_data,
-    ["Overdue total"]
+    [
+        "Overdue total",
+        "Overdue.total"
+    ]
 )
+
 
 client_col = find_column(
     combined_data,
-    ["Client name"]
+    [
+        "Client name",
+        "Client.name"
+    ]
 )
+
 
 fdo_col = find_column(
     combined_data,
@@ -166,6 +248,7 @@ required_columns = {
     "Client": client_col,
 
     "Credit officer": fdo_col
+
 }
 
 
@@ -173,9 +256,11 @@ missing = [
 
     name
 
-    for name, col in required_columns.items()
+    for name, col
+    in required_columns.items()
 
     if col is None
+
 ]
 
 
@@ -213,7 +298,7 @@ working_data[overdue_col] = pd.to_numeric(
 
 
 # =========================================================
-# CLEAN COLUMNS
+# CLEAN LOAN CYCLE
 # =========================================================
 
 working_data[cycle_col] = (
@@ -223,12 +308,20 @@ working_data[cycle_col] = (
 )
 
 
+# =========================================================
+# CLEAN CREDIT OFFICER
+# =========================================================
+
 working_data[fdo_col] = (
     working_data[fdo_col]
     .astype(str)
     .str.strip()
 )
 
+
+# =========================================================
+# CLEAN CLIENT
+# =========================================================
 
 working_data["_client_clean"] = (
     working_data[client_col]
@@ -244,7 +337,12 @@ working_data["_client_clean"] = (
 working_data = working_data[
     (working_data[cycle_col] != "")
     &
-    (working_data[cycle_col].str.lower() != "nan")
+    (
+        working_data[
+            cycle_col
+        ].str.lower()
+        != "nan"
+    )
 ].copy()
 
 
@@ -255,48 +353,67 @@ working_data = working_data[
 credit_officers = sorted(
     [
         officer
-        for officer in working_data[fdo_col].unique()
+
+        for officer
+        in working_data[
+            fdo_col
+        ].unique()
+
         if officer
         and officer.lower() != "nan"
         and officer.lower() != "unknown"
     ]
 )
 
+
 if user_role != "credit_officer":
-  
-  selected_credit_officer = st.sidebar.selectbox(
-  
-      "Credit Officer:",
-  
-      ["All Credit Officers"] + credit_officers,
-  
-      index=0,
-  
-      key="loan_cycle_credit_officer"
-  )
-  
+
+    selected_credit_officer = (
+        st.sidebar.selectbox(
+
+            "Credit Officer:",
+
+            [
+                "All Credit Officers"
+            ]
+            +
+            credit_officers,
+
+            index=0,
+
+            key="loan_cycle_credit_officer"
+        )
+    )
+
 else:
-  
-  selected_credit_officer = st.sidebar.selectbox(
-  
-      "Credit Officer:",
-  
-      credit_officers,
-  
-      index=0,
-  
-      key="loan_cycle_credit_officer"
-  )
+
+    selected_credit_officer = (
+        st.sidebar.selectbox(
+
+            "Credit Officer:",
+
+            credit_officers,
+
+            index=0,
+
+            key="loan_cycle_credit_officer"
+        )
+    )
+
 
 # =========================================================
 # FILTER BY CREDIT OFFICER
 # =========================================================
 
-if selected_credit_officer != "All Credit Officers":
+if (
+    selected_credit_officer
+    != "All Credit Officers"
+):
 
     working_data = working_data[
         working_data[fdo_col]
-        == selected_credit_officer
+        ==
+        selected_credit_officer
     ].copy()
 
 
@@ -319,9 +436,20 @@ if working_data.empty:
 # =========================================================
 
 working_data = working_data[
-    (working_data["_client_clean"] != "")
+    (
+        working_data[
+            "_client_clean"
+        ]
+        != ""
+    )
     &
-    (working_data["_client_clean"].str.lower() != "nan")
+    (
+        working_data[
+            "_client_clean"
+        ]
+        .str.lower()
+        != "nan"
+    )
 ].copy()
 
 
@@ -330,12 +458,16 @@ working_data = working_data[
 # =========================================================
 
 overall_total_loan = (
-    working_data[loan_col].sum()
+    working_data[
+        loan_col
+    ].sum()
 )
 
 
 overall_total_overdue = (
-    working_data[overdue_col].sum()
+    working_data[
+        overdue_col
+    ].sum()
 )
 
 
@@ -343,17 +475,20 @@ overall_total_overdue = (
 # CLIENT TOTALS
 # =========================================================
 
-# Total unique clients
 overall_total_clients = (
-    working_data["_client_clean"]
+    working_data[
+        "_client_clean"
+    ]
     .nunique()
 )
 
 
-# Total unique overdue clients
 overall_overdue_clients = (
     working_data.loc[
-        working_data[overdue_col] > 0,
+        working_data[
+            overdue_col
+        ] > 0,
+
         "_client_clean"
     ]
     .nunique()
@@ -368,7 +503,9 @@ loan_cycle_totals = (
 
     working_data
 
-    .groupby(cycle_col)
+    .groupby(
+        cycle_col
+    )
 
     .agg(
 
@@ -385,6 +522,7 @@ loan_cycle_totals = (
     )
 
     .reset_index()
+
 )
 
 
@@ -396,7 +534,9 @@ total_clients_by_cycle = (
 
     working_data
 
-    .groupby(cycle_col)
+    .groupby(
+        cycle_col
+    )
 
     .agg(
 
@@ -408,6 +548,7 @@ total_clients_by_cycle = (
     )
 
     .reset_index()
+
 )
 
 
@@ -418,10 +559,14 @@ total_clients_by_cycle = (
 overdue_clients_by_cycle = (
 
     working_data[
-        working_data[overdue_col] > 0
+        working_data[
+            overdue_col
+        ] > 0
     ]
 
-    .groupby(cycle_col)
+    .groupby(
+        cycle_col
+    )
 
     .agg(
 
@@ -433,6 +578,7 @@ overdue_clients_by_cycle = (
     )
 
     .reset_index()
+
 )
 
 
@@ -446,17 +592,25 @@ client_cycle_totals = (
 
     .merge(
         overdue_clients_by_cycle,
+
         on=cycle_col,
+
         how="left"
     )
 
 )
 
 
-client_cycle_totals["overdue_clients"] = (
+client_cycle_totals[
+    "overdue_clients"
+] = (
 
-    client_cycle_totals["overdue_clients"]
+    client_cycle_totals[
+        "overdue_clients"
+    ]
+
     .fillna(0)
+
     .astype(int)
 
 )
@@ -466,80 +620,113 @@ client_cycle_totals["overdue_clients"] = (
 # CREATE PERCENTAGES
 # =========================================================
 
+
 # ---------------------------------------------------------
-# Loan percentage
+# LOAN PERCENTAGE
 # ---------------------------------------------------------
 
 if overall_total_loan > 0:
 
-    loan_cycle_totals["loan_percent"] = (
+    loan_cycle_totals[
+        "loan_percent"
+    ] = (
 
-        loan_cycle_totals["total_loan"]
+        loan_cycle_totals[
+            "total_loan"
+        ]
+
         / overall_total_loan
+
         * 100
 
     )
 
 else:
 
-    loan_cycle_totals["loan_percent"] = 0
+    loan_cycle_totals[
+        "loan_percent"
+    ] = 0
 
 
 # ---------------------------------------------------------
-# Overdue percentage
+# OVERDUE PERCENTAGE OF TOTAL OVERDUE
 # ---------------------------------------------------------
 
 if overall_total_overdue > 0:
 
-    loan_cycle_totals["overdue_percent"] = (
+    loan_cycle_totals[
+        "overdue_percent"
+    ] = (
 
-        loan_cycle_totals["total_overdue"]
+        loan_cycle_totals[
+            "total_overdue"
+        ]
+
         / overall_total_overdue
+
         * 100
 
     )
 
 else:
 
-    loan_cycle_totals["overdue_percent"] = 0
+    loan_cycle_totals[
+        "overdue_percent"
+    ] = 0
 
 
 # ---------------------------------------------------------
-# Client percentage
+# CLIENT PERCENTAGE
 # ---------------------------------------------------------
 
 if overall_total_clients > 0:
 
-    client_cycle_totals["client_percent"] = (
+    client_cycle_totals[
+        "client_percent"
+    ] = (
 
-        client_cycle_totals["total_clients"]
+        client_cycle_totals[
+            "total_clients"
+        ]
+
         / overall_total_clients
+
         * 100
 
     )
 
 else:
 
-    client_cycle_totals["client_percent"] = 0
+    client_cycle_totals[
+        "client_percent"
+    ] = 0
 
 
 # ---------------------------------------------------------
-# Overdue client percentage
+# OVERDUE CLIENT PERCENTAGE OF TOTAL OVERDUE CLIENTS
 # ---------------------------------------------------------
 
 if overall_overdue_clients > 0:
 
-    client_cycle_totals["overdue_client_percent"] = (
+    client_cycle_totals[
+        "overdue_client_percent"
+    ] = (
 
-        client_cycle_totals["overdue_clients"]
+        client_cycle_totals[
+            "overdue_clients"
+        ]
+
         / overall_overdue_clients
+
         * 100
 
     )
 
 else:
 
-    client_cycle_totals["overdue_client_percent"] = 0
+    client_cycle_totals[
+        "overdue_client_percent"
+    ] = 0
 
 
 # =========================================================
@@ -548,19 +735,30 @@ else:
 
 try:
 
-    loan_cycle_totals["_cycle_numeric"] = pd.to_numeric(
-        loan_cycle_totals[cycle_col],
+    loan_cycle_totals[
+        "_cycle_numeric"
+    ] = pd.to_numeric(
+
+        loan_cycle_totals[
+            cycle_col
+        ],
+
         errors="raise"
+
     )
 
     loan_cycle_totals = (
+
         loan_cycle_totals
+
         .sort_values(
             "_cycle_numeric"
         )
+
         .drop(
             columns="_cycle_numeric"
         )
+
     )
 
 except:
@@ -573,22 +771,104 @@ except:
 # =========================================================
 
 cycle_order = (
-    loan_cycle_totals[cycle_col]
-    .tolist()
+    loan_cycle_totals[
+        cycle_col
+    ].tolist()
 )
 
 
-client_cycle_totals[cycle_col] = (
-    client_cycle_totals[cycle_col]
+client_cycle_totals[
+    cycle_col
+] = (
+
+    client_cycle_totals[
+        cycle_col
+    ]
+
     .astype(str)
+
 )
 
 
 client_cycle_totals = (
+
     client_cycle_totals
-    .set_index(cycle_col)
-    .reindex(cycle_order)
+
+    .set_index(
+        cycle_col
+    )
+
+    .reindex(
+        cycle_order
+    )
+
     .reset_index()
+
+)
+
+
+# =========================================================
+# ADD RATIO PERCENTAGES FOR HOVER
+# =========================================================
+
+
+# ---------------------------------------------------------
+# OVERDUE LOAN AS % OF TOTAL LOAN
+# ---------------------------------------------------------
+
+loan_cycle_totals[
+    "overdue_of_loan_percent"
+] = (
+
+    loan_cycle_totals[
+        "total_overdue"
+    ]
+
+    .div(
+
+        loan_cycle_totals[
+            "total_loan"
+        ].replace(
+            0,
+            pd.NA
+        )
+
+    )
+
+    .fillna(0)
+
+    * 100
+
+)
+
+
+# ---------------------------------------------------------
+# OVERDUE CLIENTS AS % OF TOTAL CLIENTS
+# ---------------------------------------------------------
+
+client_cycle_totals[
+    "overdue_of_clients_percent"
+] = (
+
+    client_cycle_totals[
+        "overdue_clients"
+    ]
+
+    .div(
+
+        client_cycle_totals[
+            "total_clients"
+        ].replace(
+            0,
+            pd.NA
+        )
+
+    )
+
+    .fillna(0)
+
+    * 100
+
 )
 
 
@@ -617,9 +897,13 @@ with col1:
 
         go.Bar(
 
-            x=loan_cycle_totals[cycle_col],
+            x=loan_cycle_totals[
+                cycle_col
+            ],
 
-            y=loan_cycle_totals["total_loan"],
+            y=loan_cycle_totals[
+                "total_loan"
+            ],
 
             name="Total Loan",
 
@@ -641,6 +925,7 @@ with col1:
                 "%{customdata[1]:.1f}%"
 
                 "<extra></extra>"
+
             )
 
         )
@@ -656,16 +941,21 @@ with col1:
 
         go.Bar(
 
-            x=loan_cycle_totals[cycle_col],
+            x=loan_cycle_totals[
+                cycle_col
+            ],
 
-            y=loan_cycle_totals["total_overdue"],
+            y=loan_cycle_totals[
+                "total_overdue"
+            ],
 
             name="Total Overdue",
 
             customdata=loan_cycle_totals[
                 [
                     "total_overdue",
-                    "overdue_percent"
+                    "overdue_percent",
+                    "overdue_of_loan_percent"
                 ]
             ],
 
@@ -677,9 +967,13 @@ with col1:
                 "₱%{customdata[0]:,.2f}<br>"
 
                 "Percent of Total Overdue: "
-                "%{customdata[1]:.1f}%"
+                "%{customdata[1]:.1f}%<br>"
+
+                "Overdue / Total Loan: "
+                "%{customdata[2]:.1f}%"
 
                 "<extra></extra>"
+
             )
 
         )
@@ -783,7 +1077,9 @@ with col2:
 
         go.Bar(
 
-            x=client_cycle_totals[cycle_col],
+            x=client_cycle_totals[
+                cycle_col
+            ],
 
             y=client_cycle_totals[
                 "total_clients"
@@ -809,6 +1105,7 @@ with col2:
                 "%{customdata[1]:.1f}%"
 
                 "<extra></extra>"
+
             )
 
         )
@@ -824,7 +1121,9 @@ with col2:
 
         go.Bar(
 
-            x=client_cycle_totals[cycle_col],
+            x=client_cycle_totals[
+                cycle_col
+            ],
 
             y=client_cycle_totals[
                 "overdue_clients"
@@ -835,7 +1134,8 @@ with col2:
             customdata=client_cycle_totals[
                 [
                     "overdue_clients",
-                    "overdue_client_percent"
+                    "overdue_client_percent",
+                    "overdue_of_clients_percent"
                 ]
             ],
 
@@ -847,9 +1147,13 @@ with col2:
                 "%{customdata[0]:,}<br>"
 
                 "Percent of Total Overdue Clients: "
-                "%{customdata[1]:.1f}%"
+                "%{customdata[1]:.1f}%<br>"
+
+                "Overdue Clients / Total Clients: "
+                "%{customdata[2]:.1f}%"
 
                 "<extra></extra>"
+
             )
 
         )
@@ -941,10 +1245,18 @@ with col2:
 
 st.caption(
 
-    f"Credit Officer: {selected_credit_officer}"
-    f" | Total Loan: ₱{overall_total_loan:,.2f}"
-    f" | Total Overdue: ₱{overall_total_overdue:,.2f}"
-    f" | Total Clients: {overall_total_clients:,}"
+    f"Credit Officer: "
+    f"{selected_credit_officer}"
+
+    f" | Total Loan: "
+    f"₱{overall_total_loan:,.2f}"
+
+    f" | Total Overdue: "
+    f"₱{overall_total_overdue:,.2f}"
+
+    f" | Total Clients: "
+    f"{overall_total_clients:,}"
+
     f" | Total Overdue Clients: "
     f"{overall_overdue_clients:,}"
 
