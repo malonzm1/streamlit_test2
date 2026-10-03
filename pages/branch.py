@@ -68,7 +68,7 @@ def find_column(df, possible_names):
 # ============================================================
 
 loan_col = find_column(
-    combined_data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -77,7 +77,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    combined_data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -86,7 +86,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    combined_data,
+    working_data,
     [
         "Client name",
         "Client.name"
@@ -95,7 +95,7 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    combined_data,
+    working_data,
     [
         "Credit officer",
         "Credit.officer"
@@ -104,7 +104,7 @@ fdo_col = find_column(
 
 
 branch_col = find_column(
-    combined_data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -113,7 +113,7 @@ branch_col = find_column(
 
 
 area_col = find_column(
-    combined_data,
+    working_data,
     [
         "Area",
         "Area.name"
@@ -126,7 +126,7 @@ area_col = find_column(
 # ============================================================
 
 centre_col = find_column(
-    combined_data,
+    working_data,
     [
         "Centre",
         "Center",
@@ -187,7 +187,7 @@ if missing_columns:
     )
 
     st.write(
-        list(combined_data.columns)
+        list(working_data.columns)
     )
 
     st.stop()
@@ -343,14 +343,14 @@ elif user_role == "credit_officer":
 # MAKE NUMERIC COLUMNS NUMERIC
 # ============================================================
 
-combined_data[loan_col] = pd.to_numeric(
-    combined_data[loan_col],
+working_data[loan_col] = pd.to_numeric(
+    working_data[loan_col],
     errors="coerce"
 ).fillna(0)
 
 
-combined_data[overdue_col] = pd.to_numeric(
-    combined_data[overdue_col],
+working_data[overdue_col] = pd.to_numeric(
+    working_data[overdue_col],
     errors="coerce"
 ).fillna(0)
 
@@ -404,7 +404,7 @@ else:
 # ============================================================
 
 cycles = sorted(
-    combined_data[
+    working_data[
         "Loan Cycle"
     ]
     .dropna()
@@ -426,8 +426,8 @@ cycle = st.sidebar.selectbox(
 
 if cycle != "All":
 
-    combined_data = combined_data[
-        combined_data[
+    working_data = working_data[
+        working_data[
             "Loan Cycle"
         ]
         ==
@@ -447,7 +447,7 @@ if selection == "loan value":
 
     branch_totals = (
 
-        combined_data
+        working_data
 
         .groupby(
             branch_col,
@@ -697,38 +697,42 @@ if selection == "loan value":
     # ========================================================
 
     fig.update_layout(
-
-        title=(
-            "Total Loan, Total Overdue and "
-            "Overdue % of Total Loan by Branch"
+    
+        # ----------------------------------------------------
+        # TITLE
+        # ----------------------------------------------------
+        title=dict(
+            text=(
+                "Total Loan, Total Overdue and "
+                "Overdue % of Total Loan by Branch"
+            ),
+            x=0.5,
+            xanchor="center",
+    
+            # Move title closer to legend
+            y=0.84,
+            yanchor="top",
+    
+            font=dict(size=13)
         ),
-
+    
         # ----------------------------------------------------
         # MAIN AMOUNT SCALE
         # ----------------------------------------------------
-
         xaxis=dict(
-
             title="Amount",
-
             tickformat=",.0f",
-
             rangemode="tozero"
-
         ),
-
+    
         # ----------------------------------------------------
         # PERCENTAGE SCALE ON TOP
         # ----------------------------------------------------
-
         xaxis2=dict(
-
             title="Overdue / Total Loan (%)",
-
             overlaying="x",
-
             side="top",
-
+    
             range=[
                 0,
                 max(
@@ -740,73 +744,77 @@ if selection == "loan value":
                     ) * 1.10
                 )
             ],
-
+    
             tickmode="linear",
-
             tick0=0,
-
             dtick=10,
-
             ticksuffix="%",
-
             showgrid=False,
-
             zeroline=False
-
         ),
-
+    
+        # ----------------------------------------------------
+        # Y AXIS
+        # ----------------------------------------------------
         yaxis=dict(
-
             title="Branch",
-
             type="category",
-
             categoryorder="array",
-
             categoryarray=(
                 branch_totals[
                     branch_col
                 ].tolist()
             ),
-
             automargin=True
-
         ),
-
+    
         barmode="group",
-
+    
+        # ----------------------------------------------------
+        # FIGURE HEIGHT
+        # ----------------------------------------------------
         height=max(
             600,
             len(branch_totals) * 55
         ),
-
+    
+        # ----------------------------------------------------
+        # TOP MARGIN
+        # ----------------------------------------------------
         margin=dict(
-
             l=150,
-
             r=80,
-
-            t=120,
-
+    
+            # Reserve space above the plot
+            t=300,
+    
             b=60
-
         ),
-
+    
+        # ----------------------------------------------------
+        # LEGEND
+        # ----------------------------------------------------
         legend=dict(
-
             orientation="h",
-
+        
+            x=0.5,
+            xanchor="center",
+        
+            # Pull legend upward
+            y=1.40,
             yanchor="bottom",
-
-            y=1.08,
-
-            xanchor="left",
-
-            x=0
-
+        
+            font=dict(size=12),
+        
+            tracegroupgap=20
         )
 
+
     )
+
+
+
+
 
 
     # ========================================================
@@ -831,7 +839,7 @@ else:
 
     branch_totals = (
 
-        combined_data
+        working_data
 
         .groupby(
             branch_col,

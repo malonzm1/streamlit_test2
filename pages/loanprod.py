@@ -25,6 +25,7 @@ st.set_page_config(
 # ============================================================
 
 if st.session_state.get("logged_in_user") is None:
+
     st.switch_page("pages/home.py")
 
 
@@ -219,8 +220,28 @@ if missing_columns:
 # CURRENT USER
 # ============================================================
 
-logged_in_user = st.session_state.get("logged_in_user")
-user_role = st.session_state.get("user_role")
+logged_in_user = st.session_state.get(
+    "logged_in_user"
+)
+
+user_role = st.session_state.get(
+    "user_role"
+)
+
+
+# ============================================================
+# GET ROLE MAPPINGS
+# ============================================================
+
+AREA_MANAGERS2 = st.session_state.get(
+    "AREA_MANAGERS2",
+    {}
+)
+
+BRANCH_MANAGERS2 = st.session_state.get(
+    "BRANCH_MANAGERS2",
+    {}
+)
 
 
 # ============================================================
@@ -233,6 +254,14 @@ st.sidebar.success(
 )
 
 
+# ============================================================
+# DETERMINE USER'S AREA / BRANCH
+# ============================================================
+
+manager_area = None
+manager_branch = None
+
+
 if user_role == "credit_officer":
 
     st.sidebar.info(
@@ -241,10 +270,6 @@ if user_role == "credit_officer":
 
 
 elif user_role == "area_manager":
-
-    AREA_MANAGERS2 = (
-        st.session_state["AREA_MANAGERS2"]
-    )
 
     manager_area = AREA_MANAGERS2.get(
         logged_in_user
@@ -269,11 +294,46 @@ elif user_role == "area_manager":
     )
 
 
+elif user_role == "branch_manager":
+
+    manager_branch = BRANCH_MANAGERS2.get(
+        logged_in_user
+    )
+
+    if manager_branch is None:
+
+        st.error(
+            "This Branch Manager is not assigned "
+            "to a Branch."
+        )
+
+        st.stop()
+
+    st.sidebar.info(
+        "Role: Branch Manager"
+    )
+
+    st.sidebar.info(
+        "Branch: "
+        + str(manager_branch)
+    )
+
+
 elif user_role == "superuser":
 
     st.sidebar.info(
         "Role: Administrator"
     )
+
+
+else:
+
+    st.error(
+        "Unknown user role: "
+        + str(user_role)
+    )
+
+    st.stop()
 
 
 # ============================================================
@@ -307,6 +367,17 @@ if user_role == "area_manager":
         + str(manager_area)
     )
 
+
+elif user_role == "branch_manager":
+
+    st.caption(
+        "Branch Manager: "
+        + str(logged_in_user)
+        + " | Branch: "
+        + str(manager_branch)
+    )
+
+
 elif user_role == "credit_officer":
 
     st.caption(
@@ -339,7 +410,58 @@ data[overdue_col] = pd.to_numeric(
 
 
 # ============================================================
-# CREDIT OFFICER DROPDOWN
+# CLEAN DATA VALUES
+# ============================================================
+
+data[area_col] = (
+    data[area_col]
+    .astype(str)
+    .str.strip()
+)
+
+data[branch_col] = (
+    data[branch_col]
+    .astype(str)
+    .str.strip()
+)
+
+data[fdo_col] = (
+    data[fdo_col]
+    .astype(str)
+    .str.strip()
+)
+
+
+# ============================================================
+# CREATE LIST OF AREA MANAGERS
+# ============================================================
+
+area_manager_names = sorted(
+    [
+        str(x).strip()
+        for x in AREA_MANAGERS2.keys()
+        if str(x).strip()
+        and str(x).strip().lower() != "nan"
+    ]
+)
+
+
+# ============================================================
+# CREATE LIST OF BRANCH MANAGERS
+# ============================================================
+
+branch_manager_names = sorted(
+    [
+        str(x).strip()
+        for x in BRANCH_MANAGERS2.keys()
+        if str(x).strip()
+        and str(x).strip().lower() != "nan"
+    ]
+)
+
+
+# ============================================================
+# CREATE LIST OF CREDIT OFFICERS
 # ============================================================
 
 credit_officers = sorted(
@@ -353,37 +475,34 @@ credit_officers = sorted(
 )
 
 
-if user_role == "credit_officer":
+# ============================================================
+# ROLE-BASED FILTER
+# ============================================================
 
-    credit_officers = [
-        str(logged_in_user)
-    ]
+# This variable is used later in the filter summary.
+selected_area_manager = "All Area Managers"
+selected_branch_manager = "All Branch Managers"
+selected_credit_officer = "All Credit Officers"
 
-
-if user_role == "credit_officer":
-
-    selected_credit_officer = st.sidebar.selectbox(
-        "Credit Officer:",
-        credit_officers,
-        index=0,
-        key="product_summary_credit_officer"
-    )
-
-else:
-
-    selected_credit_officer = st.sidebar.selectbox(
-        "Credit Officer:",
-        ["All Credit Officers"] + credit_officers,
-        index=0,
-        key="product_summary_credit_officer"
-    )
+filter_type = "All data"
 
 
 # ============================================================
-# FILTER BY CREDIT OFFICER
+# CREDIT OFFICER
+# ============================================================
+#
+# Credit Officer:
+#   - No radio buttons
+#   - No dropdown
+#   - Automatically sees own data
+#
 # ============================================================
 
-if selected_credit_officer != "All Credit Officers":
+if user_role == "credit_officer":
+
+    selected_credit_officer = str(
+        logged_in_user
+    ).strip()
 
     data = data[
         data[fdo_col].astype(str).str.strip()
@@ -392,14 +511,491 @@ if selected_credit_officer != "All Credit Officers":
 
 
 # ============================================================
-# CHECK DATA AFTER CREDIT OFFICER FILTER
+# ADMIN
+# ============================================================
+#
+# Admin radio buttons:
+#
+#   All data
+#   Area managers
+#   Branch managers
+#   Credit officers
+#
+# ============================================================
+
+elif user_role == "superuser":
+
+    filter_type = st.sidebar.radio(
+        "View:",
+        options=[
+            "All data",
+            "Area managers",
+            "Branch managers",
+            "Credit officers"
+        ],
+        index=0,
+        key="admin_view_filter"
+    )
+
+
+    # ========================================================
+    # ALL DATA
+    # ========================================================
+
+    if filter_type == "All data":
+
+        # No dropdown
+
+        pass
+
+
+    # ========================================================
+    # AREA MANAGERS
+    # ========================================================
+
+    elif filter_type == "Area managers":
+
+        selected_area_manager = st.sidebar.selectbox(
+            "Area Manager:",
+            options=[
+                "All Area Managers"
+            ] + area_manager_names,
+            index=0,
+            key="admin_area_manager_filter"
+        )
+
+
+        if (
+            selected_area_manager
+            != "All Area Managers"
+        ):
+
+            selected_area = AREA_MANAGERS2.get(
+                selected_area_manager
+            )
+
+            if selected_area is None:
+
+                st.error(
+                    "The selected Area Manager "
+                    "is not assigned to an Area."
+                )
+
+                st.stop()
+
+
+            data = data[
+                data[area_col].astype(str).str.strip()
+                == str(selected_area).strip()
+            ].copy()
+
+
+    # ========================================================
+    # BRANCH MANAGERS
+    # ========================================================
+
+    elif filter_type == "Branch managers":
+
+        selected_branch_manager = st.sidebar.selectbox(
+            "Branch Manager:",
+            options=[
+                "All Branch Managers"
+            ] + branch_manager_names,
+            index=0,
+            key="admin_branch_manager_filter"
+        )
+
+
+        if (
+            selected_branch_manager
+            != "All Branch Managers"
+        ):
+
+            selected_branch = BRANCH_MANAGERS2.get(
+                selected_branch_manager
+            )
+
+            if selected_branch is None:
+
+                st.error(
+                    "The selected Branch Manager "
+                    "is not assigned to a Branch."
+                )
+
+                st.stop()
+
+
+            data = data[
+                data[branch_col].astype(str).str.strip()
+                == str(selected_branch).strip()
+            ].copy()
+
+
+    # ========================================================
+    # CREDIT OFFICERS
+    # ========================================================
+
+    elif filter_type == "Credit officers":
+
+        selected_credit_officer = st.sidebar.selectbox(
+            "Credit Officer:",
+            options=[
+                "All Credit Officers"
+            ] + credit_officers,
+            index=0,
+            key="admin_credit_officer_filter"
+        )
+
+
+        if (
+            selected_credit_officer
+            != "All Credit Officers"
+        ):
+
+            data = data[
+                data[fdo_col].astype(str).str.strip()
+                == selected_credit_officer
+            ].copy()
+
+
+# ============================================================
+# AREA MANAGER
+# ============================================================
+#
+# Area Manager radio buttons:
+#
+#   All data
+#   Branch managers
+#   Credit officers
+#
+# The Area Manager can only see data belonging to
+# his/her assigned Area.
+#
+# ============================================================
+
+elif user_role == "area_manager":
+
+    filter_type = st.sidebar.radio(
+        "View:",
+        options=[
+            "All data",
+            "Branch managers",
+            "Credit officers"
+        ],
+        index=0,
+        key="area_manager_view_filter"
+    )
+
+
+    # ========================================================
+    # FIRST RESTRICT DATA TO AREA
+    # ========================================================
+
+    area_data = data[
+        data[area_col].astype(str).str.strip()
+        == str(manager_area).strip()
+    ].copy()
+
+
+    # ========================================================
+    # ALL DATA
+    # ========================================================
+
+    if filter_type == "All data":
+
+        data = area_data.copy()
+
+
+    # ========================================================
+    # BRANCH MANAGERS
+    # ========================================================
+
+    elif filter_type == "Branch managers":
+
+        # ----------------------------------------------------
+        # Find branches belonging to this Area
+        # ----------------------------------------------------
+
+        area_branches = sorted(
+            area_data[branch_col]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .unique()
+        )
+
+
+        # ----------------------------------------------------
+        # Find Branch Managers whose branch belongs to
+        # this Area
+        # ----------------------------------------------------
+
+        available_branch_managers = []
+
+        for (
+            manager,
+            branch
+        ) in BRANCH_MANAGERS2.items():
+
+            manager = str(
+                manager
+            ).strip()
+
+            branch = str(
+                branch
+            ).strip()
+
+
+            if branch in area_branches:
+
+                available_branch_managers.append(
+                    manager
+                )
+
+
+        available_branch_managers = sorted(
+            set(
+                available_branch_managers
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # Branch Manager dropdown
+        # ----------------------------------------------------
+
+        selected_branch_manager = st.sidebar.selectbox(
+            "Branch Manager:",
+            options=[
+                "All Branch Managers"
+            ] + available_branch_managers,
+            index=0,
+            key="area_branch_manager_filter"
+        )
+
+
+        # ----------------------------------------------------
+        # All Branch Managers in the Area
+        # ----------------------------------------------------
+
+        if (
+            selected_branch_manager
+            == "All Branch Managers"
+        ):
+
+            data = area_data.copy()
+
+
+        # ----------------------------------------------------
+        # One Branch Manager
+        # ----------------------------------------------------
+
+        else:
+
+            selected_branch = BRANCH_MANAGERS2.get(
+                selected_branch_manager
+            )
+
+
+            if selected_branch is None:
+
+                st.error(
+                    "The selected Branch Manager "
+                    "is not assigned to a Branch."
+                )
+
+                st.stop()
+
+
+            data = area_data[
+                area_data[branch_col]
+                .astype(str)
+                .str.strip()
+                == str(selected_branch).strip()
+            ].copy()
+
+
+    # ========================================================
+    # CREDIT OFFICERS
+    # ========================================================
+
+    elif filter_type == "Credit officers":
+
+        # ----------------------------------------------------
+        # Credit officers belonging to this Area
+        # ----------------------------------------------------
+
+        available_credit_officers = sorted(
+            [
+                str(x).strip()
+                for x in area_data[
+                    fdo_col
+                ].dropna().unique()
+                if str(x).strip()
+                and str(x).strip().lower()
+                != "unknown"
+                and str(x).strip().lower()
+                != "nan"
+            ]
+        )
+
+
+        # ----------------------------------------------------
+        # Credit Officer dropdown
+        # ----------------------------------------------------
+
+        selected_credit_officer = st.sidebar.selectbox(
+            "Credit Officer:",
+            options=[
+                "All Credit Officers"
+            ] + available_credit_officers,
+            index=0,
+            key="area_credit_officer_filter"
+        )
+
+
+        # ----------------------------------------------------
+        # All Credit Officers in Area
+        # ----------------------------------------------------
+
+        if (
+            selected_credit_officer
+            == "All Credit Officers"
+        ):
+
+            data = area_data.copy()
+
+
+        # ----------------------------------------------------
+        # One Credit Officer
+        # ----------------------------------------------------
+
+        else:
+
+            data = area_data[
+                area_data[fdo_col]
+                .astype(str)
+                .str.strip()
+                == selected_credit_officer
+            ].copy()
+
+
+# ============================================================
+# BRANCH MANAGER
+# ============================================================
+#
+# Branch Manager radio buttons:
+#
+#   All data
+#   Credit officers
+#
+# The Branch Manager can only see data belonging to
+# his/her assigned Branch.
+#
+# ============================================================
+
+elif user_role == "branch_manager":
+
+    filter_type = st.sidebar.radio(
+        "View:",
+        options=[
+            "All data",
+            "Credit officers"
+        ],
+        index=0,
+        key="branch_manager_view_filter"
+    )
+
+
+    # ========================================================
+    # FIRST RESTRICT DATA TO BRANCH
+    # ========================================================
+
+    branch_data = data[
+        data[branch_col].astype(str).str.strip()
+        == str(manager_branch).strip()
+    ].copy()
+
+
+    # ========================================================
+    # ALL DATA
+    # ========================================================
+
+    if filter_type == "All data":
+
+        data = branch_data.copy()
+
+
+    # ========================================================
+    # CREDIT OFFICERS
+    # ========================================================
+
+    elif filter_type == "Credit officers":
+
+        available_credit_officers = sorted(
+            [
+                str(x).strip()
+                for x in branch_data[
+                    fdo_col
+                ].dropna().unique()
+                if str(x).strip()
+                and str(x).strip().lower()
+                != "unknown"
+                and str(x).strip().lower()
+                != "nan"
+            ]
+        )
+
+
+        # ----------------------------------------------------
+        # Credit Officer dropdown
+        # ----------------------------------------------------
+
+        selected_credit_officer = st.sidebar.selectbox(
+            "Credit Officer:",
+            options=[
+                "All Credit Officers"
+            ] + available_credit_officers,
+            index=0,
+            key="branch_credit_officer_filter"
+        )
+
+
+        # ----------------------------------------------------
+        # All Credit Officers in Branch
+        # ----------------------------------------------------
+
+        if (
+            selected_credit_officer
+            == "All Credit Officers"
+        ):
+
+            data = branch_data.copy()
+
+
+        # ----------------------------------------------------
+        # One Credit Officer
+        # ----------------------------------------------------
+
+        else:
+
+            data = branch_data[
+                branch_data[fdo_col]
+                .astype(str)
+                .str.strip()
+                == selected_credit_officer
+            ].copy()
+
+
+# ============================================================
+# CHECK DATA AFTER ROLE FILTER
 # ============================================================
 
 if data.empty:
 
     st.warning(
         "No data was found for the selected "
-        "Credit Officer."
+        "filter."
     )
 
     st.stop()
@@ -420,7 +1016,9 @@ cycles = sorted(
 
 cycle = st.sidebar.selectbox(
     "Loan cycle:",
-    options=["All"] + cycles,
+    options=[
+        "All"
+    ] + cycles,
     index=0,
     key="product_summary_loan_cycle"
 )
@@ -483,12 +1081,16 @@ col1, col2 = st.columns(2)
 
 product_summary = (
     data
-    .groupby(product_col, as_index=False)
+    .groupby(
+        product_col,
+        as_index=False
+    )
     .agg(
         total_loan=(
             loan_col,
             "sum"
         ),
+
         total_overdue=(
             overdue_col,
             "sum"
@@ -503,7 +1105,9 @@ product_summary = (
 
 client_summary = (
     data
-    .groupby(product_col)
+    .groupby(
+        product_col
+    )
     .agg(
         total_clients=(
             client_col,
@@ -522,7 +1126,9 @@ overdue_client_data = (
     data.loc[
         data[overdue_col] > 0
     ]
-    .groupby(product_col)[client_col]
+    .groupby(
+        product_col
+    )[client_col]
     .nunique()
     .rename(
         "overdue_clients"
@@ -546,9 +1152,13 @@ client_summary = client_summary.merge(
 # FILL PRODUCTS WITH NO OVERDUE CLIENTS
 # ============================================================
 
-client_summary["overdue_clients"] = (
+client_summary[
+    "overdue_clients"
+] = (
     pd.to_numeric(
-        client_summary["overdue_clients"],
+        client_summary[
+            "overdue_clients"
+        ],
         errors="coerce"
     )
     .fillna(0)
@@ -567,8 +1177,12 @@ sort_summary = product_summary.merge(
 )
 
 
-sort_summary["overdue_clients"] = (
-    sort_summary["overdue_clients"]
+sort_summary[
+    "overdue_clients"
+] = (
+    sort_summary[
+        "overdue_clients"
+    ]
     .fillna(0)
     .astype(int)
 )
@@ -585,12 +1199,14 @@ if sort_by == "Total Loan":
         ascending=False
     )
 
+
 elif sort_by == "Total Overdue":
 
     sort_summary = sort_summary.sort_values(
         "total_overdue",
         ascending=False
     )
+
 
 elif sort_by == "Total Clients":
 
@@ -599,12 +1215,14 @@ elif sort_by == "Total Clients":
         ascending=False
     )
 
+
 elif sort_by == "Overdue Clients":
 
     sort_summary = sort_summary.sort_values(
         "overdue_clients",
         ascending=False
     )
+
 
 else:
 
@@ -638,12 +1256,16 @@ with col1:
     # ========================================================
 
     max_loan = (
-        sort_summary["total_loan"].max()
+        sort_summary[
+            "total_loan"
+        ].max()
     )
 
 
     max_overdue = (
-        sort_summary["total_overdue"].max()
+        sort_summary[
+            "total_overdue"
+        ].max()
     )
 
 
@@ -663,14 +1285,22 @@ with col1:
     # CREATE SCALED VALUES
     # ========================================================
 
-    sort_summary["scaled_overdue"] = (
-        sort_summary["total_overdue"]
+    sort_summary[
+        "scaled_overdue"
+    ] = (
+        sort_summary[
+            "total_overdue"
+        ]
         * scale_factor
     )
 
 
-    sort_summary["loan_plot"] = (
-        sort_summary["total_loan"]
+    sort_summary[
+        "loan_plot"
+    ] = (
+        sort_summary[
+            "total_loan"
+        ]
         .clip(lower=1)
         .apply(
             lambda x: math.log10(x)
@@ -678,8 +1308,12 @@ with col1:
     )
 
 
-    sort_summary["overdue_plot"] = (
-        sort_summary["scaled_overdue"]
+    sort_summary[
+        "overdue_plot"
+    ] = (
+        sort_summary[
+            "scaled_overdue"
+        ]
         .clip(lower=1)
         .apply(
             lambda x: math.log10(x)
@@ -700,7 +1334,10 @@ with col1:
 
     fig_loan.add_trace(
         go.Bar(
-            x=sort_summary["loan_plot"],
+
+            x=sort_summary[
+                "loan_plot"
+            ],
 
             y=sort_summary[
                 product_col
@@ -736,6 +1373,7 @@ with col1:
 
     fig_loan.add_trace(
         go.Bar(
+
             x=sort_summary[
                 "overdue_plot"
             ],
@@ -915,6 +1553,7 @@ with col1:
             side="bottom",
 
             ticks="outside"
+
         ),
 
 
@@ -955,6 +1594,7 @@ with col1:
             zeroline=False,
 
             layer="above traces"
+
         ),
 
 
@@ -1296,11 +1936,65 @@ with col2:
 # CURRENT FILTER SUMMARY
 # ============================================================
 
-st.caption(
-    "Credit Officer: "
-    + str(selected_credit_officer)
-    + " | Loan Cycle: "
-    + str(cycle)
-    + " | Sort by: "
-    + str(sort_by)
-)
+if user_role == "superuser":
+
+    st.caption(
+        "View: "
+        + str(filter_type)
+        + " | Area Manager: "
+        + str(selected_area_manager)
+        + " | Branch Manager: "
+        + str(selected_branch_manager)
+        + " | Credit Officer: "
+        + str(selected_credit_officer)
+        + " | Loan Cycle: "
+        + str(cycle)
+        + " | Sort by: "
+        + str(sort_by)
+    )
+
+
+elif user_role == "area_manager":
+
+    st.caption(
+        "View: "
+        + str(filter_type)
+        + " | Area: "
+        + str(manager_area)
+        + " | Branch Manager: "
+        + str(selected_branch_manager)
+        + " | Credit Officer: "
+        + str(selected_credit_officer)
+        + " | Loan Cycle: "
+        + str(cycle)
+        + " | Sort by: "
+        + str(sort_by)
+    )
+
+
+elif user_role == "branch_manager":
+
+    st.caption(
+        "View: "
+        + str(filter_type)
+        + " | Branch: "
+        + str(manager_branch)
+        + " | Credit Officer: "
+        + str(selected_credit_officer)
+        + " | Loan Cycle: "
+        + str(cycle)
+        + " | Sort by: "
+        + str(sort_by)
+    )
+
+
+elif user_role == "credit_officer":
+
+    st.caption(
+        "Credit Officer: "
+        + str(logged_in_user)
+        + " | Loan Cycle: "
+        + str(cycle)
+        + " | Sort by: "
+        + str(sort_by)
+    )

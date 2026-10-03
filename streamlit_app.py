@@ -18,7 +18,7 @@ from googleapiclient.http import MediaIoBaseDownload
 
 
 st.set_page_config(
-    page_title="KCCDMFI Dashboard",
+    page_title="KMFI Dashboard",
     layout="wide"
 )
 
