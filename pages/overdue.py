@@ -361,6 +361,7 @@ selection2 = st.sidebar.radio(
     "Choose an option:",
 
     [
+        "All data",
         "Branch",
         "Product name",
         "FDO"
@@ -373,6 +374,9 @@ selection2 = st.sidebar.radio(
 # ============================================================
 # DETERMINE GROUPING COLUMN
 # ============================================================
+
+selected_column = None
+
 
 if selection2 == "Branch":
 
@@ -392,23 +396,9 @@ elif selection2 == "Product name":
     selected_column = product_col
 
 
-else:
+elif selection2 == "FDO":
 
     selected_column = fdo_col
-
-
-# ============================================================
-# CHECK SELECTED COLUMN
-# ============================================================
-
-if selected_column is None:
-
-    st.error(
-        "The selected grouping column "
-        "was not found."
-    )
-
-    st.stop()
 
 
 # ============================================================
@@ -432,235 +422,289 @@ selection3 = st.sidebar.radio(
 
 
 # ============================================================
-# CLEAN GROUPING VALUES
+# ALL DATA SELECTION
 # ============================================================
 
-all_data[selected_column] = (
+if selection2 == "All data":
 
-    all_data[selected_column]
+    # --------------------------------------------------------
+    # No grouping column is required.
+    # No dropdown menu will be displayed.
+    # --------------------------------------------------------
 
-    .fillna("Unknown")
+    selected_value = "All data"
 
-    .astype(str)
+    all_data0 = all_data.copy()
 
-    .str.strip()
-
-)
-
-
-combined_data[selected_column] = (
-
-    combined_data[selected_column]
-
-    .fillna("Unknown")
-
-    .astype(str)
-
-    .str.strip()
-
-)
+    combined_data0 = combined_data.copy()
 
 
 # ============================================================
-# DETERMINE GROUP ORDER
+# GROUPED DATA SELECTION
 # ============================================================
-
-if selection3 == "Alphabetical":
-
-    selection_values = sorted(
-
-        [
-
-            x
-
-            for x
-            in combined_data[selected_column].unique()
-
-            if str(x).strip()
-
-            and str(x).lower()
-            not in [
-                "nan",
-                "none"
-            ]
-
-        ]
-
-    )
-
-
-elif selection3 == "Total loan":
-
-    sort_data = (
-
-        all_data
-
-        .groupby(
-            selected_column,
-            dropna=False
-        )[loan_col]
-
-        .sum()
-
-        .sort_values(
-            ascending=False
-        )
-
-    )
-
-    selection_values = (
-        sort_data.index
-        .astype(str)
-        .tolist()
-    )
-
-
-elif selection3 == "Overdue loan":
-
-    sort_data = (
-
-        combined_data
-
-        .groupby(
-            selected_column,
-            dropna=False
-        )[overdue_col]
-
-        .sum()
-
-        .sort_values(
-            ascending=False
-        )
-
-    )
-
-    selection_values = (
-        sort_data.index
-        .astype(str)
-        .tolist()
-    )
-
-
-elif selection3 == "Total client":
-
-    sort_data = (
-
-        all_data
-
-        .groupby(
-            selected_column,
-            dropna=False
-        )[client_col]
-
-        .nunique()
-
-        .sort_values(
-            ascending=False
-        )
-
-    )
-
-    selection_values = (
-        sort_data.index
-        .astype(str)
-        .tolist()
-    )
-
 
 else:
 
-    sort_data = (
+    # --------------------------------------------------------
+    # CHECK SELECTED COLUMN
+    # --------------------------------------------------------
 
-        combined_data
+    if selected_column is None:
 
-        .groupby(
-            selected_column,
-            dropna=False
-        )[client_col]
-
-        .nunique()
-
-        .sort_values(
-            ascending=False
+        st.error(
+            "The selected grouping column "
+            "was not found."
         )
 
-    )
+        st.stop()
 
-    selection_values = (
-        sort_data.index
+
+    # ========================================================
+    # CLEAN GROUPING VALUES
+    # ========================================================
+
+    all_data[selected_column] = (
+
+        all_data[selected_column]
+
+        .fillna("Unknown")
+
         .astype(str)
-        .tolist()
+
+        .str.strip()
+
     )
 
 
-# ============================================================
-# REMOVE EMPTY GROUPS
-# ============================================================
+    combined_data[selected_column] = (
 
-selection_values = [
+        combined_data[selected_column]
 
-    str(x)
+        .fillna("Unknown")
 
-    for x
-    in selection_values
+        .astype(str)
 
-    if str(x).strip()
+        .str.strip()
 
-    and str(x).lower()
-    not in [
-        "nan",
-        "none"
+    )
+
+
+    # ========================================================
+    # DETERMINE GROUP ORDER
+    # ========================================================
+
+    if selection3 == "Alphabetical":
+
+        selection_values = sorted(
+
+            [
+
+                x
+
+                for x
+                in combined_data[selected_column].unique()
+
+                if str(x).strip()
+
+                and str(x).lower()
+                not in [
+                    "nan",
+                    "none"
+                ]
+
+            ]
+
+        )
+
+
+    elif selection3 == "Total loan":
+
+        sort_data = (
+
+            all_data
+
+            .groupby(
+                selected_column,
+                dropna=False
+            )[loan_col]
+
+            .sum()
+
+            .sort_values(
+                ascending=False
+            )
+
+        )
+
+        selection_values = (
+
+            sort_data.index
+
+            .astype(str)
+
+            .tolist()
+
+        )
+
+
+    elif selection3 == "Overdue loan":
+
+        sort_data = (
+
+            combined_data
+
+            .groupby(
+                selected_column,
+                dropna=False
+            )[overdue_col]
+
+            .sum()
+
+            .sort_values(
+                ascending=False
+            )
+
+        )
+
+        selection_values = (
+
+            sort_data.index
+
+            .astype(str)
+
+            .tolist()
+
+        )
+
+
+    elif selection3 == "Total client":
+
+        sort_data = (
+
+            all_data
+
+            .groupby(
+                selected_column,
+                dropna=False
+            )[client_col]
+
+            .nunique()
+
+            .sort_values(
+                ascending=False
+            )
+
+        )
+
+        selection_values = (
+
+            sort_data.index
+
+            .astype(str)
+
+            .tolist()
+
+        )
+
+
+    else:
+
+        sort_data = (
+
+            combined_data
+
+            .groupby(
+                selected_column,
+                dropna=False
+            )[client_col]
+
+            .nunique()
+
+            .sort_values(
+                ascending=False
+            )
+
+        )
+
+        selection_values = (
+
+            sort_data.index
+
+            .astype(str)
+
+            .tolist()
+
+        )
+
+
+    # ========================================================
+    # REMOVE EMPTY GROUPS
+    # ========================================================
+
+    selection_values = [
+
+        str(x)
+
+        for x
+        in selection_values
+
+        if str(x).strip()
+
+        and str(x).lower()
+        not in [
+            "nan",
+            "none"
+        ]
+
     ]
 
-]
+
+    if not selection_values:
+
+        st.warning(
+            "No groups are available for "
+            "the selected filters."
+        )
+
+        st.stop()
 
 
-if not selection_values:
+    # ========================================================
+    # SELECT GROUP
+    # ========================================================
 
-    st.warning(
-        "No groups are available for "
-        "the selected filters."
+    selected_value = st.sidebar.selectbox(
+
+        "Select:",
+
+        selection_values,
+
+        key="overdue_selected_group"
     )
 
-    st.stop()
+
+    # ========================================================
+    # DATA FOR SELECTED GROUP
+    # ========================================================
+
+    all_data0 = all_data[
+
+        all_data[selected_column]
+        .astype(str)
+        ==
+        str(selected_value)
+
+    ].copy()
 
 
-# ============================================================
-# SELECT GROUP
-# ============================================================
+    combined_data0 = combined_data[
 
-selected_value = st.sidebar.selectbox(
+        combined_data[selected_column]
+        .astype(str)
+        ==
+        str(selected_value)
 
-    "Select:",
-
-    selection_values,
-
-    key="overdue_selected_group"
-)
-
-
-# ============================================================
-# DATA FOR SELECTED GROUP
-# ============================================================
-
-all_data0 = all_data[
-
-    all_data[selected_column]
-    .astype(str)
-    ==
-    str(selected_value)
-
-].copy()
-
-
-combined_data0 = combined_data[
-
-    combined_data[selected_column]
-    .astype(str)
-    ==
-    str(selected_value)
-
-].copy()
+    ].copy()
 
 
 # ============================================================
@@ -670,9 +714,17 @@ combined_data0 = combined_data[
 st.title("Overdue")
 
 
-st.markdown(
-    f"### {selection2}: {selected_value}"
-)
+if selection2 == "All data":
+
+    st.markdown(
+        "### All data"
+    )
+
+else:
+
+    st.markdown(
+        f"### {selection2}: {selected_value}"
+    )
 
 
 # ============================================================
@@ -825,10 +877,15 @@ if selection1 == "Loan cycle":
     # Handle it as a categorical variable.
 
     histogram_source[histogram_column] = (
+
         histogram_source[histogram_column]
+
         .fillna("Unknown")
+
         .astype(str)
+
         .str.strip()
+
     )
 
 
@@ -847,6 +904,7 @@ if selection1 == "Loan cycle":
         )
 
         .agg(
+
             records=(
                 client_col,
                 "size"
@@ -881,7 +939,9 @@ if selection1 == "Loan cycle":
     overdue_client_counts = (
 
         histogram_source[
+
             histogram_source[overdue_col] > 0
+
         ]
 
         .groupby(
@@ -917,6 +977,7 @@ if selection1 == "Loan cycle":
         cycle_summary["percentage_clients"] = (
 
             cycle_summary["clients"]
+
             /
             total_clients_for_percentage
             *
@@ -930,8 +991,11 @@ if selection1 == "Loan cycle":
 
 
     cycle_summary["bin_label"] = (
+
         cycle_summary[histogram_column]
+
         .astype(str)
+
     )
 
 
@@ -1007,8 +1071,10 @@ if selection1 == "Loan cycle":
     fig.update_layout(
 
         title=(
+
             f"{selection1} Distribution — "
             f"{selection2}: {selected_value}"
+
         ),
 
         xaxis=dict(
@@ -1119,6 +1185,7 @@ else:
             "for the histogram were not found: "
 
             +
+
             ", ".join(
                 missing_hist_columns
             )
@@ -1261,8 +1328,11 @@ else:
         total_clients_for_percentage = (
 
             hist_data.loc[
+
                 hist_data[overdue_col] > 0,
+
                 client_col
+
             ]
 
             .nunique()
@@ -1328,7 +1398,9 @@ else:
     overdue_by_bin = (
 
         hist_data.loc[
+
             hist_data[overdue_col] > 0
+
         ]
 
         .groupby(
@@ -1863,3 +1935,4 @@ if st.sidebar.button(
     st.switch_page(
         "pages/home.py"
     )
+

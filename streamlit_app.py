@@ -174,6 +174,11 @@ pg = st.navigation(
                 icon="⚠️"
             ),
             st.Page(
+                "pages/not_overdue.py",
+                title="Not Overdue",
+                icon="⚠️"
+            ),
+            st.Page(
                 "pages/loanprod.py",
                 title="Loan Product",
                 icon="💰"
