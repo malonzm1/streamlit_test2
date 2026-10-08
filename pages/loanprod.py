@@ -33,7 +33,7 @@ if st.session_state.get("logged_in_user") is None:
 # DATA
 # ============================================================
 
-if "data" not in st.session_state:
+if "working_data" not in st.session_state:
 
     st.warning(
         "Data has not been loaded yet. "
@@ -111,7 +111,7 @@ def find_column(
 # ============================================================
 
 loan_col = find_column(
-    data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -120,7 +120,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -129,7 +129,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    data,
+    working_data,
     [
         "Client name",
         "Client.name"
@@ -138,7 +138,7 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    data,
+    working_data,
     [
         "Credit officer",
         "Credit.officer"
@@ -147,7 +147,7 @@ fdo_col = find_column(
 
 
 branch_col = find_column(
-    data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -156,7 +156,7 @@ branch_col = find_column(
 
 
 area_col = find_column(
-    data,
+    working_data,
     [
         "Area",
         "Area.name"
@@ -165,7 +165,7 @@ area_col = find_column(
 
 
 cycle_col = find_column(
-    data,
+    working_data,
     [
         "Loan Cycle"
     ]
@@ -173,7 +173,7 @@ cycle_col = find_column(
 
 
 product_col = find_column(
-    data,
+    working_data,
     [
         "Product name"
     ]
@@ -185,7 +185,7 @@ product_col = find_column(
 # ============================================================
 
 centre_col = find_column(
-    data,
+    working_data,
     [
         "Centre",
         "Center",

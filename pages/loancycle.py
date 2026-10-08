@@ -1,10 +1,9 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import plotly.graph_objects as go
-import math
-
 from googleapiclient.http import MediaIoBaseDownload
 
+import plotly.graph_objects as go
+import math
 import pandas as pd
 import streamlit as st
 import os
@@ -30,13 +29,25 @@ if st.session_state.get("logged_in_user") is None:
 
 
 # =========================================================
-# CHECK DATA
+# CHECK AUTHORIZED DATA
+# =========================================================
+#
+# working_data has already been created on Home according
+# to the user's role.
+#
+# Admin          -> all data
+# Area Manager   -> their Area
+# Branch Manager -> their Branch
+# Credit Officer -> their own data
+#
+# Therefore, this page does NOT need the original
+# complete "data" dataset.
 # =========================================================
 
-if "data" not in st.session_state:
+if "working_data" not in st.session_state:
 
     st.warning(
-        "Data has not been loaded yet. "
+        "Authorized data has not been loaded yet. "
         "Please return to Home first."
     )
 
@@ -44,82 +55,13 @@ if "data" not in st.session_state:
 
 
 # =========================================================
-# ORIGINAL COMPLETE DATA
+# GET AUTHORIZED DATA
 # =========================================================
 
-data = st.session_state["data"]
+working_data = st.session_state[
+    "working_data"
+].copy()
 
-
-# =========================================================
-# ROLE-FILTERED DATA
-# =========================================================
-
-combined_data = st.session_state.get(
-    "working_data",
-    data.copy()
-)
-
-# ============================================================
-# SIDEBAR — LOAN PRODUCT FILTER
-# ============================================================
-
-product_filter = st.sidebar.radio(
-    "Loan Product:",
-    options=[
-        "Keep all loan products",
-        "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
-    ],
-    key="loan_product_filter"
-)
-
-if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
-
-    # Words to search for in Product name
-    excluded_product_words = [
-        "ACPC",
-        "restructured",
-        "sagip",
-        "pagbangon",
-        "recovery"
-    ]
-
-    # Create a mask identifying products containing any
-    # of the excluded words, case-insensitively
-    product_text = (
-        combined_data["Product name"]
-        .fillna("")
-        .astype(str)
-    )
-
-    exclude_mask = product_text.str.contains(
-        "|".join(excluded_product_words),
-        case=False,
-        na=False,
-        regex=True
-    )
-
-    # Remove those records
-    combined_data = combined_data[
-        ~exclude_mask
-    ].copy()
-    
-    product_text = (
-        data["Product name"]
-        .fillna("")
-        .astype(str)
-    )
-
-    exclude_mask = product_text.str.contains(
-        "|".join(excluded_product_words),
-        case=False,
-        na=False,
-        regex=True
-    )
-
-    # Remove those records
-    data = data[
-        ~exclude_mask
-    ].copy()
 
 # =========================================================
 # CURRENT USER
@@ -151,6 +93,61 @@ BRANCH_MANAGERS2 = st.session_state.get(
 
 
 # =========================================================
+# SIDEBAR — LOAN PRODUCT FILTER
+# =========================================================
+
+product_filter = st.sidebar.radio(
+    "Loan Product:",
+    options=[
+        "Keep all loan products",
+        "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
+    ],
+    key="loan_cycle_product_filter"
+)
+
+
+if (
+    product_filter
+    ==
+    "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
+):
+
+    # Words to search for in Product name
+
+    excluded_product_words = [
+        "ACPC",
+        "restructured",
+        "sagip",
+        "pagbangon",
+        "recovery"
+    ]
+
+
+    # Check that Product name exists
+
+    if "Product name" in working_data.columns:
+
+        product_text = (
+            working_data["Product name"]
+            .fillna("")
+            .astype(str)
+        )
+
+
+        exclude_mask = product_text.str.contains(
+            "|".join(excluded_product_words),
+            case=False,
+            na=False,
+            regex=True
+        )
+
+
+        working_data = working_data[
+            ~exclude_mask
+        ].copy()
+
+
+# =========================================================
 # SIDEBAR USER INFORMATION
 # =========================================================
 
@@ -177,6 +174,7 @@ elif user_role == "area_manager":
         logged_in_user
     )
 
+
     if manager_area is None:
 
         st.error(
@@ -186,9 +184,11 @@ elif user_role == "area_manager":
 
         st.stop()
 
+
     st.sidebar.info(
         "Role: Area Manager"
     )
+
 
     st.sidebar.info(
         "Area: "
@@ -202,6 +202,7 @@ elif user_role == "branch_manager":
         logged_in_user
     )
 
+
     if manager_branch is None:
 
         st.error(
@@ -211,9 +212,11 @@ elif user_role == "branch_manager":
 
         st.stop()
 
+
     st.sidebar.info(
         "Role: Branch Manager"
     )
+
 
     st.sidebar.info(
         "Branch: "
@@ -243,6 +246,8 @@ if st.sidebar.button(
 
     st.session_state["user_role"] = None
 
+    st.session_state["working_data"] = None
+
     st.switch_page(
         "pages/home.py"
     )
@@ -269,12 +274,12 @@ def find_column(
 # =========================================================
 # FIND REQUIRED COLUMNS
 #
-# Use the ORIGINAL COMPLETE DATA so that Admin can
-# access Area, Branch, and Credit Officer filters.
+# Columns are now found from working_data because
+# working_data contains all columns needed by the page.
 # =========================================================
 
 cycle_col = find_column(
-    data,
+    working_data,
     [
         "Loan Cycle"
     ]
@@ -282,7 +287,7 @@ cycle_col = find_column(
 
 
 loan_col = find_column(
-    data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -291,7 +296,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -300,7 +305,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    data,
+    working_data,
     [
         "Client name",
         "Client.name"
@@ -309,7 +314,7 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    data,
+    working_data,
     [
         "Credit officer",
         "Credit.officer"
@@ -318,7 +323,7 @@ fdo_col = find_column(
 
 
 branch_col = find_column(
-    data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -327,13 +332,17 @@ branch_col = find_column(
 
 
 area_col = find_column(
-    data,
+    working_data,
     [
         "Area",
         "Area.name"
     ]
 )
 
+
+# =========================================================
+# REQUIRED COLUMNS
+# =========================================================
 
 required_columns = {
 
@@ -377,26 +386,17 @@ if missing:
 
 
 # =========================================================
-# CREATE BASE DATA
-#
-# This is cleaned BEFORE role filtering.
+# CLEAN WORKING DATA
 # =========================================================
 
-base_data = data.copy()
-
-
-# =========================================================
-# CONVERT NUMERIC COLUMNS
-# =========================================================
-
-base_data[loan_col] = pd.to_numeric(
-    base_data[loan_col],
+working_data[loan_col] = pd.to_numeric(
+    working_data[loan_col],
     errors="coerce"
 ).fillna(0)
 
 
-base_data[overdue_col] = pd.to_numeric(
-    base_data[overdue_col],
+working_data[overdue_col] = pd.to_numeric(
+    working_data[overdue_col],
     errors="coerce"
 ).fillna(0)
 
@@ -405,8 +405,8 @@ base_data[overdue_col] = pd.to_numeric(
 # CLEAN LOAN CYCLE
 # =========================================================
 
-base_data[cycle_col] = (
-    base_data[cycle_col]
+working_data[cycle_col] = (
+    working_data[cycle_col]
     .fillna("")
     .astype(str)
     .str.strip()
@@ -417,8 +417,8 @@ base_data[cycle_col] = (
 # CLEAN CREDIT OFFICER
 # =========================================================
 
-base_data[fdo_col] = (
-    base_data[fdo_col]
+working_data[fdo_col] = (
+    working_data[fdo_col]
     .fillna("")
     .astype(str)
     .str.strip()
@@ -429,8 +429,8 @@ base_data[fdo_col] = (
 # CLEAN BRANCH
 # =========================================================
 
-base_data[branch_col] = (
-    base_data[branch_col]
+working_data[branch_col] = (
+    working_data[branch_col]
     .fillna("")
     .astype(str)
     .str.strip()
@@ -441,8 +441,8 @@ base_data[branch_col] = (
 # CLEAN AREA
 # =========================================================
 
-base_data[area_col] = (
-    base_data[area_col]
+working_data[area_col] = (
+    working_data[area_col]
     .fillna("")
     .astype(str)
     .str.strip()
@@ -453,8 +453,8 @@ base_data[area_col] = (
 # CLEAN CLIENT
 # =========================================================
 
-base_data["_client_clean"] = (
-    base_data[client_col]
+working_data["_client_clean"] = (
+    working_data[client_col]
     .fillna("")
     .astype(str)
     .str.strip()
@@ -465,11 +465,11 @@ base_data["_client_clean"] = (
 # REMOVE EMPTY / NAN LOAN CYCLES
 # =========================================================
 
-base_data = base_data[
-    (base_data[cycle_col] != "")
+working_data = working_data[
+    (working_data[cycle_col] != "")
     &
     (
-        base_data[
+        working_data[
             cycle_col
         ].str.lower()
         != "nan"
@@ -496,6 +496,8 @@ selected_credit_officer = None
 #   Area managers
 #   Branch managers
 #   Credit officers
+#
+# For Admin, working_data already contains ALL data.
 # =========================================================
 
 if user_role == "superuser":
@@ -522,7 +524,8 @@ if user_role == "superuser":
 
     if admin_view == "All data":
 
-        working_data = base_data.copy()
+        # working_data already contains all data.
+        pass
 
 
     # =====================================================
@@ -554,7 +557,7 @@ if user_role == "superuser":
             )
 
             working_data = (
-                base_data.iloc[0:0].copy()
+                working_data.iloc[0:0].copy()
             )
 
         else:
@@ -582,8 +585,8 @@ if user_role == "superuser":
             )
 
 
-            working_data = base_data[
-                base_data[area_col]
+            working_data = working_data[
+                working_data[area_col]
                 .astype(str)
                 .str.strip()
                 ==
@@ -621,7 +624,7 @@ if user_role == "superuser":
             )
 
             working_data = (
-                base_data.iloc[0:0].copy()
+                working_data.iloc[0:0].copy()
             )
 
         else:
@@ -649,8 +652,8 @@ if user_role == "superuser":
             )
 
 
-            working_data = base_data[
-                base_data[branch_col]
+            working_data = working_data[
+                working_data[branch_col]
                 .astype(str)
                 .str.strip()
                 ==
@@ -672,7 +675,7 @@ if user_role == "superuser":
                 officer
 
                 for officer
-                in base_data[fdo_col].unique()
+                in working_data[fdo_col].unique()
 
                 if officer
 
@@ -692,7 +695,7 @@ if user_role == "superuser":
             )
 
             working_data = (
-                base_data.iloc[0:0].copy()
+                working_data.iloc[0:0].copy()
             )
 
         else:
@@ -713,8 +716,8 @@ if user_role == "superuser":
             )
 
 
-            working_data = base_data[
-                base_data[fdo_col]
+            working_data = working_data[
+                working_data[fdo_col]
                 ==
                 selected_credit_officer
             ].copy()
@@ -727,6 +730,9 @@ if user_role == "superuser":
 #   All data
 #   Branch managers
 #   Credit officers
+#
+# working_data already contains only this Area Manager's
+# authorized records.
 # =========================================================
 
 elif user_role == "area_manager":
@@ -747,18 +753,15 @@ elif user_role == "area_manager":
 
 
     # =====================================================
-    # AREA MANAGER'S DATA
-    #
-    # Start from combined_data because Home has already
-    # restricted this user to their own Area.
+    # AREA MANAGER'S AUTHORIZED DATA
     # =====================================================
 
-    area_data = combined_data.copy()
+    area_data = working_data.copy()
 
 
-    # -----------------------------------------------------
-    # Re-clean numeric columns
-    # -----------------------------------------------------
+    # =====================================================
+    # RE-CLEAN AREA DATA
+    # =====================================================
 
     area_data[loan_col] = pd.to_numeric(
         area_data[loan_col],
@@ -771,10 +774,6 @@ elif user_role == "area_manager":
         errors="coerce"
     ).fillna(0)
 
-
-    # -----------------------------------------------------
-    # Re-clean text columns
-    # -----------------------------------------------------
 
     area_data[cycle_col] = (
         area_data[cycle_col]
@@ -831,8 +830,6 @@ elif user_role == "area_manager":
 
     elif area_manager_view == "Branch managers":
 
-        # Branches actually available to this Area Manager
-
         area_branches = set(
 
             area_data[
@@ -853,9 +850,6 @@ elif user_role == "area_manager":
 
         )
 
-
-        # Only show Branch Managers whose branch
-        # belongs to this Area Manager
 
         branch_manager_options = sorted(
 
@@ -985,23 +979,25 @@ elif user_role == "area_manager":
 # =========================================================
 # BRANCH MANAGER
 #
-# Home has already restricted this user to their branch.
+# Home has already restricted working_data to this
+# Branch Manager's authorized branch.
 # =========================================================
 
 elif user_role == "branch_manager":
 
-    working_data = combined_data.copy()
+    working_data = working_data.copy()
 
 
 # =========================================================
 # CREDIT OFFICER
 #
-# Home has already restricted this user to their data.
+# Home has already restricted working_data to this
+# Credit Officer's authorized records.
 # =========================================================
 
 elif user_role == "credit_officer":
 
-    working_data = combined_data.copy()
+    working_data = working_data.copy()
 
 
 # =========================================================
@@ -1010,17 +1006,11 @@ elif user_role == "credit_officer":
 
 else:
 
-    working_data = combined_data.copy()
+    working_data = working_data.copy()
 
 
 # =========================================================
 # FINAL CLEANING
-#
-# IMPORTANT:
-# Recreate _client_clean AFTER role filtering.
-#
-# This prevents:
-# KeyError: '_client_clean'
 # =========================================================
 
 working_data[loan_col] = pd.to_numeric(
@@ -1112,35 +1102,6 @@ if working_data.empty:
 
 # =========================================================
 # CREDIT OFFICER DROPDOWN
-#
-# Only show this dropdown when the selected view has
-# not already selected a specific Credit Officer.
-#
-# Therefore:
-#
-# Admin -> All data:
-#     Credit Officer dropdown
-#
-# Admin -> Area Manager:
-#     Credit Officer dropdown
-#
-# Admin -> Branch Manager:
-#     Credit Officer dropdown
-#
-# Admin -> Credit Officer:
-#     already selected, so no second dropdown
-#
-# Area Manager -> All data:
-#     Credit Officer dropdown
-#
-# Area Manager -> Branch Manager:
-#     Credit Officer dropdown
-#
-# Area Manager -> Credit Officer:
-#     already selected
-#
-# Branch Manager / Credit Officer:
-#     existing behavior
 # =========================================================
 
 if selected_credit_officer is None:
@@ -1173,11 +1134,13 @@ if selected_credit_officer is None:
                 credit_officers[0]
             )
 
+
             working_data = working_data[
                 working_data[fdo_col]
                 ==
                 selected_credit_officer
             ].copy()
+
 
     else:
 
@@ -1203,10 +1166,6 @@ if selected_credit_officer is None:
                 )
             )
 
-
-            # ---------------------------------------------
-            # Filter only when a specific officer is chosen
-            # ---------------------------------------------
 
             if (
                 selected_credit_officer
@@ -1436,13 +1395,8 @@ client_cycle_totals[
 
 
 # =========================================================
-# CREATE PERCENTAGES
-# =========================================================
-
-
-# ---------------------------------------------------------
 # LOAN PERCENTAGE
-# ---------------------------------------------------------
+# =========================================================
 
 if overall_total_loan > 0:
 
@@ -1467,9 +1421,9 @@ else:
     ] = 0
 
 
-# ---------------------------------------------------------
+# =========================================================
 # OVERDUE PERCENTAGE OF TOTAL OVERDUE
-# ---------------------------------------------------------
+# =========================================================
 
 if overall_total_overdue > 0:
 
@@ -1494,9 +1448,9 @@ else:
     ] = 0
 
 
-# ---------------------------------------------------------
+# =========================================================
 # CLIENT PERCENTAGE
-# ---------------------------------------------------------
+# =========================================================
 
 if overall_total_clients > 0:
 
@@ -1521,9 +1475,9 @@ else:
     ] = 0
 
 
-# ---------------------------------------------------------
-# OVERDUE CLIENT PERCENTAGE OF TOTAL OVERDUE CLIENTS
-# ---------------------------------------------------------
+# =========================================================
+# OVERDUE CLIENT PERCENTAGE
+# =========================================================
 
 if overall_overdue_clients > 0:
 
@@ -1565,6 +1519,7 @@ try:
         errors="raise"
 
     )
+
 
     loan_cycle_totals = (
 
@@ -1627,13 +1582,8 @@ client_cycle_totals = (
 
 
 # =========================================================
-# ADD RATIO PERCENTAGES FOR HOVER
-# =========================================================
-
-
-# ---------------------------------------------------------
 # OVERDUE LOAN AS % OF TOTAL LOAN
-# ---------------------------------------------------------
+# =========================================================
 
 loan_cycle_totals[
     "overdue_of_loan_percent"
@@ -1661,9 +1611,9 @@ loan_cycle_totals[
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # OVERDUE CLIENTS AS % OF TOTAL CLIENTS
-# ---------------------------------------------------------
+# =========================================================
 
 client_cycle_totals[
     "overdue_of_clients_percent"

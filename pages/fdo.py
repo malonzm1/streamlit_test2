@@ -26,7 +26,7 @@ if st.session_state.get("logged_in_user") is None:
 # DATA
 # ============================================================
 
-if "data" not in st.session_state:
+if "working_data" not in st.session_state:
 
     st.warning(
         "Data has not been loaded yet. "
@@ -115,7 +115,7 @@ def find_column(df, possible_names):
 # ============================================================
 
 loan_col = find_column(
-    data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -124,7 +124,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -133,7 +133,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    data,
+    working_data,
     [
         "Client name",
         "Client.name"
@@ -142,7 +142,7 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    data,
+    working_data,
     [
         "Credit officer",
         "Credit.officer"
@@ -151,7 +151,7 @@ fdo_col = find_column(
 
 
 branch_col = find_column(
-    data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -160,7 +160,7 @@ branch_col = find_column(
 
 
 area_col = find_column(
-    data,
+    working_data,
     [
         "Area",
         "Area.name"
@@ -173,7 +173,7 @@ area_col = find_column(
 # ============================================================
 
 centre_col = find_column(
-    data,
+    working_data,
     [
         "Centre",
         "Center",
@@ -244,14 +244,14 @@ if missing_columns:
 # CONVERT NUMERIC COLUMNS
 # ============================================================
 
-data[loan_col] = pd.to_numeric(
-    data[loan_col],
+working_data[loan_col] = pd.to_numeric(
+    working_data[loan_col],
     errors="coerce"
 ).fillna(0)
 
 
-data[overdue_col] = pd.to_numeric(
-    data[overdue_col],
+working_data[overdue_col] = pd.to_numeric(
+    working_data[overdue_col],
     errors="coerce"
 ).fillna(0)
 
@@ -260,13 +260,13 @@ data[overdue_col] = pd.to_numeric(
 # CREDIT OFFICERS
 # ============================================================
 
-credit_officers = sorted(
-    [
-        x
-        for x in data[fdo_col].unique()
-        if x and x != "Unknown"
-    ]
-)
+#credit_officers = sorted(
+#    [
+#        x
+#        for x in data[fdo_col].unique()
+#        if x and x != "Unknown"
+#    ]
+#)
 
 
 # ============================================================
@@ -390,7 +390,7 @@ def find_column(df, possible_names):
 
 
 loan_col = find_column(
-    data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -399,7 +399,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -408,7 +408,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    data,
+    working_data,
     [
         "Client.name",
         "Client name"
@@ -417,7 +417,7 @@ client_col = find_column(
 
 
 cycle_col = find_column(
-    data,
+    working_data,
     [
         "Loan.Cycle",
         "Loan Cycle"
@@ -426,7 +426,7 @@ cycle_col = find_column(
 
 
 branch_col = find_column(
-    data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -435,7 +435,7 @@ branch_col = find_column(
 
 
 fdo_col = find_column(
-    data,
+    working_data,
     [
         "Credit.officer",
         "Credit officer"
@@ -491,14 +491,14 @@ if missing:
 # CONVERT NUMERIC COLUMNS
 # ============================================================
 
-data[loan_col] = pd.to_numeric(
-    data[loan_col],
+working_data[loan_col] = pd.to_numeric(
+    working_data[loan_col],
     errors="coerce"
 ).fillna(0)
 
 
-data[overdue_col] = pd.to_numeric(
-    data[overdue_col],
+working_data[overdue_col] = pd.to_numeric(
+    working_data[overdue_col],
     errors="coerce"
 ).fillna(0)
 
@@ -552,7 +552,7 @@ else:
 # ============================================================
 
 cycles = sorted(
-    data[cycle_col]
+    working_data[cycle_col]
     .dropna()
     .astype(str)
     .unique()
@@ -574,8 +574,8 @@ cycle = st.sidebar.selectbox(
 
 if cycle != "All":
 
-    data = data[
-        data[cycle_col].astype(str) == cycle
+    working_data = working_data[
+        working_data[cycle_col].astype(str) == cycle
     ].copy()
 
 
@@ -591,7 +591,7 @@ if selection == "loan value":
 
     officer_summary = (
 
-        data
+        working_data
 
         .groupby(
             [branch_col, fdo_col],

@@ -1087,7 +1087,8 @@ if not st.session_state["authenticated"]:
 
             elif (
                 registration_password
-                != registration_password_confirm
+                !=
+                registration_password_confirm
             ):
 
                 st.error(
@@ -1218,6 +1219,8 @@ if st.sidebar.button(
 
     st.session_state["filter_signature"] = None
 
+    st.session_state["working_data"] = None
+
     st.rerun()
 
 
@@ -1244,9 +1247,41 @@ area_manager_view_type = None
 
 # ============================================================
 # DATA ACCESS CONTROL
+#
+# IMPORTANT:
+# working_data is first filtered according to the user's
+# ROLE ONLY.
+#
+# That role-level dataset is saved to:
+#
+#     st.session_state["working_data"]
+#
+# BEFORE any Admin / Area Manager / Branch Manager
+# selection is applied.
+# ============================================================
+
+
+# ============================================================
+# ADMIN
 # ============================================================
 
 if user_role == "superuser":
+
+    # --------------------------------------------------------
+    # ROLE-LEVEL DATASET
+    #
+    # Administrator has access to all data.
+    # Save this BEFORE admin_selection_type filtering.
+    # --------------------------------------------------------
+
+    working_data = data.copy()
+
+    st.session_state["working_data"] = working_data.copy()
+
+    st.session_state["AREA_MANAGERS2"] = AREA_MANAGERS2
+
+    st.session_state["BRANCH_MANAGERS2"] = BRANCH_MANAGERS2
+
 
     st.sidebar.markdown(
         "### Dashboard Selection"
@@ -1469,6 +1504,10 @@ if user_role == "superuser":
 
 elif user_role == "credit_officer":
 
+    # --------------------------------------------------------
+    # ROLE-LEVEL DATASET
+    # --------------------------------------------------------
+
     selected_credit_officer = logged_in_user
 
     working_data = data[
@@ -1479,6 +1518,13 @@ elif user_role == "credit_officer":
         ==
         normalize_value(logged_in_user)
     ].copy()
+
+    # Save AFTER filtering by user role.
+    st.session_state["working_data"] = working_data.copy()
+
+    st.session_state["AREA_MANAGERS2"] = AREA_MANAGERS2
+
+    st.session_state["BRANCH_MANAGERS2"] = BRANCH_MANAGERS2
 
 
 # ============================================================
@@ -1502,6 +1548,14 @@ elif user_role == "area_manager":
 
     selected_area_manager = logged_in_user
 
+
+    # --------------------------------------------------------
+    # ROLE-LEVEL DATASET
+    #
+    # First restrict the data to the Area Manager's Area.
+    # Save this BEFORE branch/credit-officer selection.
+    # --------------------------------------------------------
+
     working_data = data[
         data[area_col]
         .astype(str)
@@ -1510,6 +1564,12 @@ elif user_role == "area_manager":
         ==
         normalize_value(manager_area)
     ].copy()
+
+    st.session_state["working_data"] = working_data.copy()
+
+    st.session_state["AREA_MANAGERS2"] = AREA_MANAGERS2
+
+    st.session_state["BRANCH_MANAGERS2"] = BRANCH_MANAGERS2
 
 
     # ========================================================
@@ -1707,7 +1767,10 @@ elif user_role == "branch_manager":
 
 
     # ========================================================
-    # FIRST FILTER TO THE BRANCH
+    # ROLE-LEVEL DATASET
+    #
+    # First restrict the data to the Branch Manager's branch.
+    # Save this BEFORE Credit Officer selection.
     # ========================================================
 
     branch_data = data[
@@ -1718,6 +1781,14 @@ elif user_role == "branch_manager":
         ==
         normalize_value(manager_branch)
     ].copy()
+
+    working_data = branch_data.copy()
+
+    st.session_state["working_data"] = working_data.copy()
+
+    st.session_state["AREA_MANAGERS2"] = AREA_MANAGERS2
+
+    st.session_state["BRANCH_MANAGERS2"] = BRANCH_MANAGERS2
 
 
     # ========================================================
@@ -1823,14 +1894,21 @@ if working_data.empty:
 
 
 # ============================================================
-# SAVE SHARED SESSION DATA
+# NOTE:
+#
+# DO NOT put:
+#
+#     st.session_state["working_data"] = working_data
+#
+# here.
+#
+# At this point working_data may already have been filtered
+# by Admin / Branch Manager / Area Manager / Credit Officer
+# selections.
+#
+# The session-state working_data was intentionally saved
+# earlier, immediately after the role-level filtering.
 # ============================================================
-
-st.session_state["working_data"] = working_data
-
-st.session_state["AREA_MANAGERS2"] = AREA_MANAGERS2
-
-st.session_state["BRANCH_MANAGERS2"] = BRANCH_MANAGERS2
 
 
 # ============================================================
@@ -1957,6 +2035,7 @@ elif user_role == "credit_officer":
         + str(logged_in_user)
     )
 
+
 # ============================================================
 # SIDEBAR — LOAN PRODUCT FILTER
 # ============================================================
@@ -1972,7 +2051,6 @@ product_filter = st.sidebar.radio(
 
 if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
 
-    # Words to search for in Product name
     excluded_product_words = [
         "ACPC",
         "restructured",
@@ -1981,8 +2059,6 @@ if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
         "recovery"
     ]
 
-    # Create a mask identifying products containing any
-    # of the excluded words, case-insensitively
     product_text = (
         working_data["Product name"]
         .fillna("")
@@ -1996,11 +2072,11 @@ if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
         regex=True
     )
 
-    # Remove those records
     working_data = working_data[
         ~exclude_mask
     ].copy()
-    
+
+
 # ============================================================
 # SUMMARY CALCULATIONS
 # ============================================================
@@ -2271,12 +2347,10 @@ can_click_pies = False
 
 if user_role == "superuser":
 
-    # Admin -> All Data
     if admin_selection_type == "All Data":
 
         can_click_pies = True
 
-    # Admin -> Area Manager -> All Credit Officers
     elif (
         admin_selection_type == "Area Manager"
         and
@@ -2285,11 +2359,6 @@ if user_role == "superuser":
 
         can_click_pies = True
 
-    # Admin -> Branch Manager -> All Credit Officers
-    #
-    # This is only relevant if you later add an
-    # All Credit Officers option to the Admin Branch
-    # Manager view.
     elif (
         admin_selection_type == "Branch Manager"
         and
@@ -2316,11 +2385,6 @@ elif user_role == "area_manager":
 
 elif user_role == "branch_manager":
 
-    # Branch Manager -> All Credit Officers
-    #
-    # The Branch Manager sees the complete branch,
-    # so the pie charts can be clicked and will
-    # generate the Credit Officer breakdown.
     if selected_credit_officer == "All Credit Officers":
 
         can_click_pies = True
@@ -2345,7 +2409,9 @@ current_filter_signature = (
 
     selected_branch_manager,
 
-    selected_credit_officer
+    selected_credit_officer,
+
+    product_filter
 )
 
 

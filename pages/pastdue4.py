@@ -28,7 +28,7 @@ if st.session_state.get("logged_in_user") is None:
 # ============================================================
 
 
-if "data" not in st.session_state:
+if "working_data" not in st.session_state:
 
     st.warning(
         "Data has not been loaded yet. "
@@ -85,6 +85,24 @@ if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
     working_data = working_data[
         ~exclude_mask
     ].copy()
+    
+    product_text = (
+        data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    # Remove those records
+    data = data[
+        ~exclude_mask
+    ].copy()
 
 
 
@@ -111,7 +129,7 @@ def find_column(
 # ============================================================
 
 loan_col = find_column(
-    data,
+    working_data,
     [
         "Loan amount",
         "Loan.amount"
@@ -120,7 +138,7 @@ loan_col = find_column(
 
 
 overdue_col = find_column(
-    data,
+    working_data,
     [
         "Overdue total",
         "Overdue.total"
@@ -129,7 +147,7 @@ overdue_col = find_column(
 
 
 client_col = find_column(
-    data,
+    working_data,
     [
         "Client name",
         "Client.name"
@@ -138,7 +156,7 @@ client_col = find_column(
 
 
 fdo_col = find_column(
-    data,
+    working_data,
     [
         "Credit officer",
         "Credit.officer"
@@ -147,7 +165,7 @@ fdo_col = find_column(
 
 
 branch_col = find_column(
-    data,
+    working_data,
     [
         "Branch name",
         "Branch.name"
@@ -156,7 +174,7 @@ branch_col = find_column(
 
 
 area_col = find_column(
-    data,
+    working_data,
     [
         "Area",
         "Area.name"
@@ -169,7 +187,7 @@ area_col = find_column(
 # ============================================================
 
 centre_col = find_column(
-    data,
+    working_data,
     [
         "Centre",
         "Center",
@@ -246,13 +264,13 @@ if missing_columns:
 # CREDIT OFFICERS
 # ============================================================
 
-credit_officers = sorted(
-    [
-        x
-        for x in data[fdo_col].unique()
-        if x and x != "Unknown"
-    ]
-)
+#credit_officers = sorted(
+#    [
+#        x
+#        for x in data[fdo_col].unique()
+#        if x and x != "Unknown"
+#    ]
+#)
 
 
 

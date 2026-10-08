@@ -30,7 +30,7 @@ if st.session_state.get("logged_in_user") is None:
 # CHECK DATA
 # ============================================================
 
-if "data" not in st.session_state:
+if "working_data" not in st.session_state:
 
     st.warning(
         "Data has not been loaded yet. "
