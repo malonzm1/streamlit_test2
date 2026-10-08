@@ -42,6 +42,49 @@ data = st.session_state["data"]
 
 working_data = st.session_state["working_data"]
 
+# ============================================================
+# SIDEBAR — LOAN PRODUCT FILTER
+# ============================================================
+
+product_filter = st.sidebar.radio(
+    "Loan Product:",
+    options=[
+        "Keep all loan products",
+        "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
+    ],
+    key="loan_product_filter"
+)
+
+if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
+
+    # Words to search for in Product name
+    excluded_product_words = [
+        "ACPC",
+        "restructured",
+        "sagip",
+        "pagbangon",
+        "recovery"
+    ]
+
+    # Create a mask identifying products containing any
+    # of the excluded words, case-insensitively
+    product_text = (
+        working_data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    # Remove those records
+    working_data = working_data[
+        ~exclude_mask
+    ].copy()
 
 
 
@@ -789,11 +832,14 @@ else:
 
 
 # ============================================================
-# CREDIT OFFICER COUNTS
+# CREDIT OFFICER COUNTS AND CLIENT TARGET
 # ============================================================
 
-if group_label_choice == "Area":
+if group_col == fdo_col:
+    # Each group is already one Credit Officer
+    summary["credit_officer_count"] = 1
 
+else:
     credit_officer_counts = (
         working_data
         .groupby(group_col)[fdo_col]
@@ -801,13 +847,9 @@ if group_label_choice == "Area":
         .reindex(summary[group_col])
         .fillna(0)
         .astype(int)
+        .rename("credit_officer_count")
         .reset_index()
     )
-
-    credit_officer_counts.columns = [
-        group_col,
-        "credit_officer_count"
-    ]
 
     summary = summary.merge(
         credit_officer_counts,
@@ -821,23 +863,14 @@ if group_label_choice == "Area":
         .astype(int)
     )
 
-    summary["client_target"] = (
-        summary["credit_officer_count"] * 400
-    )
+# ============================================================
+# CLIENT TARGET
+# ============================================================
 
-
-elif group_label_choice == "Branch name":
-
-    summary["credit_officer_count"] = 1
-
-    summary["client_target"] = 400
-
-
-else:
-
-    summary["credit_officer_count"] = 1
-
-    summary["client_target"] = 0
+# Each Credit Officer has a target of 400 clients
+summary["client_target"] = (
+    summary["credit_officer_count"] * 400
+)
 
 
 # ============================================================

@@ -59,6 +59,67 @@ combined_data = st.session_state.get(
     data.copy()
 )
 
+# ============================================================
+# SIDEBAR — LOAN PRODUCT FILTER
+# ============================================================
+
+product_filter = st.sidebar.radio(
+    "Loan Product:",
+    options=[
+        "Keep all loan products",
+        "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
+    ],
+    key="loan_product_filter"
+)
+
+if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
+
+    # Words to search for in Product name
+    excluded_product_words = [
+        "ACPC",
+        "restructured",
+        "sagip",
+        "pagbangon",
+        "recovery"
+    ]
+
+    # Create a mask identifying products containing any
+    # of the excluded words, case-insensitively
+    product_text = (
+        combined_data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    # Remove those records
+    combined_data = combined_data[
+        ~exclude_mask
+    ].copy()
+    
+    product_text = (
+        data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    # Remove those records
+    data = data[
+        ~exclude_mask
+    ].copy()
 
 # =========================================================
 # CURRENT USER

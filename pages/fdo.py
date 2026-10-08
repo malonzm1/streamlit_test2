@@ -40,7 +40,62 @@ data = st.session_state["data"]
 
 working_data = st.session_state["working_data"]
 
+# ============================================================
+# SIDEBAR — LOAN PRODUCT FILTER
+# ============================================================
 
+product_filter = st.sidebar.radio(
+    "Loan Product:",
+    options=[
+        "Keep all loan products",
+        "Remove ACPC/restructured/Sagip/Pagbangon/recovery"
+    ],
+    key="loan_product_filter"
+)
+
+if product_filter == "Remove ACPC/restructured/Sagip/Pagbangon/recovery":
+
+    excluded_product_words = [
+        "ACPC",
+        "restructured",
+        "sagip",
+        "pagbangon",
+        "recovery"
+    ]
+
+    product_text = (
+        working_data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    working_data = working_data[
+        ~exclude_mask
+    ].copy()
+
+    product_text = (
+        data["Product name"]
+        .fillna("")
+        .astype(str)
+    )
+
+    exclude_mask = product_text.str.contains(
+        "|".join(excluded_product_words),
+        case=False,
+        na=False,
+        regex=True
+    )
+
+    data = data[
+        ~exclude_mask
+    ].copy()
 # ============================================================
 # FIND COLUMN
 # ============================================================
